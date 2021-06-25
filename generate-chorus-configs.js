@@ -20,7 +20,7 @@ const argv = require("yargs")
 	.demand("stimuli-file")
 	.argv;
 
-const outputConfigName = 'config/chorus-config.json';
+const outputConfigName = 'chorus-config.json';
 const alternativeChoices = ["peck_left", "peck_center"];
 const wrongChoice = "peck_right";
 const stimulus_root = "/root/colony-noise-stimuli/stimuli";

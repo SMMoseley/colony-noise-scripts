@@ -1,0 +1,23 @@
+{
+  "name": "colony-noise-scripts",
+  "version": "0.1.0",
+  "description": "Two-Alternative Choice Colony-Noise Experiment",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SMMoseley/colony-noise-scripts.git"
+  },
+  "author": "Jonah Weissman <jonahrweissman@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/SMMoseley/colony-noise-scripts/issues"
+  },
+  "homepage": "https://github.com/SMMoseley/colony-noise-scripts#readme",
+  "dependencies": {
+    "underscore": "^1.13.1",
+    "yaml": "^1.10.2",
+    "yargs": "^17.0.1"
+  }
+}

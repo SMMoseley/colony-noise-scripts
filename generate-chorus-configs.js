@@ -26,7 +26,9 @@ const wrongChoice = "peck_right";
 const stimulus_root = "/root/colony-noise-stimuli/stimuli";
 const parameters = {
 	"correct_timeout": false,
-	"rand_replace": false
+	"rand_replace": false,
+	"init_key": "peck_left",
+	"feed_duration": 1000
 };
 const correctResponse = {
 	p_reward: 1.0,

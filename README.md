@@ -11,3 +11,8 @@ cd colony-noise-scripts
 
 ```
 The script will give an output named `chorus-config.json`. You can use this in decide to run gng.js
+
+For example:
+```
+scripts/gng.js C14 @smm3rc ../colony-noise-stimuli/chorus-config.json --init-key peck_left --feed-duration 1000 --response-window 10000
+```

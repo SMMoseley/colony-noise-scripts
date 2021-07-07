@@ -30,6 +30,11 @@ const parameters = {
 	"init_key": "peck_left",
 	"feed_duration": 1000
 };
+const cueMap = {
+  "peck_left": "left_blue",
+  "peck_right": "right_blue",
+  "peck_center": "center_blue",
+};
 const correctResponse = {
 	p_reward: 1.0,
 	correct: true,
@@ -85,6 +90,7 @@ function addStimuliParameters(stimuliName, correctKey) {
 	return {
 		name: stimuliName,
 		frequency: 1,
+		cue_resp: [cueMap[correctKey]],
 		responses: responses,
 	};
 }

@@ -20,6 +20,10 @@ const argv = require("yargs")
 	.demand("experiment-file")
 	.argv;
 
+const codedChoices = {
+	A: "A",
+	B: "B"
+};
 const alternativeChoices = ["peck_left", "peck_left"];
 const wrongChoice = "peck_right";
 const correctResponse = {
@@ -35,11 +39,11 @@ const neutralResponse = {
 };
 
 function otherChoice(choice) {
-	if (choice === alternativeChoices[0]) {
-		return alternativeChoices[1];
+	if (choice === codedChoices.A) {
+		return codedChoices.B;
 	}
 	else {
-		return alternativeChoices[0];
+		return codedChoices.A;
 	}
 }
 
@@ -78,27 +82,38 @@ function addStimuliParameters(stimuliName, correctKey) {
 function assignCorrectChoices(stimuli) {
 	let correctChoices = {}
 	for (const s of stimuli) {
-		correctChoices[s] = alternativeChoices[0];
+		correctChoices[s] = codedChoices.A;
 	};
 	for (const s of _.sample(stimuli, stimuli.length/2)) {
-		correctChoices[s] = alternativeChoices[1];
+		correctChoices[s] = codedChoices.B;
 	};
 	return correctChoices;
 }
 
-function getCorrectChoices(stimuli, correctChoicesFile, forceWrite, invertAnswers) {
-	let correctChoices;
+function getCorrectChoices(stimuli, correctChoicesFile, choiceMap, forceWrite, invertAnswers) {
+	let decodedCorrectChoices;
 	if (correctChoicesFile === undefined) {
 		correctChoices = assignCorrectChoices(stimuli);
-		writeCorrectChoicesFile(correctChoices, forceWrite);
+		decodedCorrectChoices = decodeChoices(correctChoices, choiceMap);
+		writeCorrectChoicesFile(decodedCorrectChoices, forceWrite);
 	}
 	else {
-		correctChoices = parseYamlFile(correctChoicesFile);
+		decodedCorrectChoices = parseYamlFile(correctChoicesFile);
 	}
 	if (invertAnswers) {
-		correctChoices = _.mapObject(correctChoices, otherChoice);
+		const encodedCorrectChoices = encodeChoices(decodedCorrectChoices, choiceMap);
+		correctChoices = _.mapObject(encodedCorrectChoices, otherChoice);
+		decodedCorrectChoices = decodeChoices(correctChoices, choiceMap);
 	}
-	return correctChoices;
+	return decodedCorrectChoices;
+}
+
+function decodeChoices(choices, choiceMap) {
+	return _.mapObject(choices, (c) => choiceMap.decode(c));
+}
+
+function encodeChoices(choices, choiceMap) {
+	return _.mapObject(choices, (c) => choiceMap.encode(c));
 }
 
 function parseYamlFile(filename) {
@@ -111,10 +126,28 @@ function writeCorrectChoicesFile(correctChoices, forceWrite) {
 	writeFileSafe("correct_choices.yml", output, forceWrite);
 }
 
-function generateOutputConfig(experimentConfig, correctChoicesFile, invertAnswers, phase, f) {
+function makeChoiceMap(choicesList) {
+	choiceMap = {};
+	choiceMap[codedChoices.A] = choicesList[0];
+	choiceMap[codedChoices.B] = choicesList[1];
+	backwardsChoiceMap = {};
+	backwardsChoiceMap[choicesList[0]] = codedChoices.A;
+	backwardsChoiceMap[choicesList[1]] = codedChoices.B;
+	return {
+		decode(choice) {
+			return choiceMap[choice];
+		},
+		encode(key) {
+			return backwardsChoiceMap[key];
+		}
+	}
+}
+
+function generateOutputConfig(experimentConfig, correctChoicesFile, invertAnswers, phase, forceWrite) {
 	if (phase === 1) {
 		const stimuli = experimentConfig.stimuli;
-		const correctChoices = getCorrectChoices(stimuli, correctChoicesFile, f, invertAnswers);
+		const choiceMap = makeChoiceMap(experimentConfig.config.choices);
+		const correctChoices = getCorrectChoices(stimuli, correctChoicesFile, choiceMap, forceWrite, invertAnswers);
 		let config = {};
 		config.parameters = experimentConfig.config.parameters;
 		config.stimulus_root = experimentConfig.config.stimulus_root;

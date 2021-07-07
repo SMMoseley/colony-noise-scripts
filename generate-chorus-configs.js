@@ -8,7 +8,7 @@ const argv = require("yargs")
 	.usage("Generate config files for chorus noise 2 alternative choice experiment")
 	.describe("phase", "phase of training (1)")
 	.describe("invert-answers", "whether to flip correct keys for each stimulus")
-	.describe("stimuli-file", ".yml file containing a list of stimuli")
+	.describe("experiment-file", ".yml file containing a list of stimuli and parameters")
 	.describe("correct-choices-file", ".yml file containing the correct choice for each stimulus")
 	.describe("f", "overwrite existing files")
 	.default({
@@ -17,19 +17,11 @@ const argv = require("yargs")
 	})
 	.boolean("invert-answers")
 	.boolean("f")
-	.demand("stimuli-file")
+	.demand("experiment-file")
 	.argv;
 
-const outputConfigName = 'chorus-config.json';
-const alternativeChoices = ["peck_left", "peck_center"];
+const alternativeChoices = ["peck_left", "peck_left"];
 const wrongChoice = "peck_right";
-const stimulus_root = "/root/colony-noise-stimuli/stimuli";
-const parameters = {
-	"correct_timeout": false,
-	"rand_replace": false,
-	"init_key": "peck_left",
-	"feed_duration": 1000
-};
 const correctResponse = {
 	p_reward: 1.0,
 	correct: true,
@@ -49,12 +41,6 @@ function otherChoice(choice) {
 	else {
 		return alternativeChoices[0];
 	}
-}
-
-function getStimuli(stimuliFilename) {
-	const stimuliFile = fs.readFileSync(stimuliFilename, 'utf8');
-	const stimuliConfig = YAML.parse(stimuliFile);
-	return stimuliConfig.stimuli;
 }
 
 function saveConfig(filename, data, forceWrite) {
@@ -107,7 +93,7 @@ function getCorrectChoices(stimuli, correctChoicesFile, forceWrite, invertAnswer
 		writeCorrectChoicesFile(correctChoices, forceWrite);
 	}
 	else {
-		correctChoices = parseCorrectChoicesFile(correctChoicesFile);
+		correctChoices = parseYamlFile(correctChoicesFile);
 	}
 	if (invertAnswers) {
 		correctChoices = _.mapObject(correctChoices, otherChoice);
@@ -115,9 +101,9 @@ function getCorrectChoices(stimuli, correctChoicesFile, forceWrite, invertAnswer
 	return correctChoices;
 }
 
-function parseCorrectChoicesFile(filename) {
-	const correctChoicesFile = fs.readFileSync(filename, 'utf8');
-	return YAML.parse(correctChoicesFile);
+function parseYamlFile(filename) {
+	const file = fs.readFileSync(filename, 'utf8');
+	return YAML.parse(file);
 }
 
 function writeCorrectChoicesFile(correctChoices, forceWrite) {
@@ -125,13 +111,13 @@ function writeCorrectChoicesFile(correctChoices, forceWrite) {
 	writeFileSafe("correct_choices.yml", output, forceWrite);
 }
 
-function generateConfig(argv) {
-	if (argv.phase === 1) {
-		const stimuli = getStimuli(argv.stimuliFile);
-		const correctChoices = getCorrectChoices(stimuli, argv.correctChoicesFile, argv.f, argv.invertAnswers);
+function generateOutputConfig(experimentConfig, correctChoicesFile, invertAnswers, phase, f) {
+	if (phase === 1) {
+		const stimuli = experimentConfig.stimuli;
+		const correctChoices = getCorrectChoices(stimuli, correctChoicesFile, f, invertAnswers);
 		let config = {};
-		config.parameters = parameters;
-		config.stimulus_root = stimulus_root;
+		config.parameters = experimentConfig.config.parameters;
+		config.stimulus_root = experimentConfig.config.stimulus_root;
 		config.stimuli = stimuli.map((s) => addStimuliParameters(s, correctChoices[s]));
 		return config
 	}
@@ -140,4 +126,12 @@ function generateConfig(argv) {
 	}
 }
 
-saveConfig(outputConfigName, generateConfig(argv), argv.f);
+const experimentConfig = parseYamlFile(argv.experimentFile);
+const outputConfig = generateOutputConfig(
+	experimentConfig,
+	argv.correctChoicesFile,
+	argv.invertAnswers,
+	argv.phase,
+	argv.f
+);
+saveConfig(experimentConfig.config.output_config_name, outputConfig, argv.f);

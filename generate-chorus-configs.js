@@ -6,7 +6,8 @@ const _ = require('underscore');
 
 const argv = require("yargs")
 	.usage("Generate config files for chorus noise 2 alternative choice experiment")
-	.describe("phase", "phase of training (1)")
+	.describe("phase", "phase of training (phase 1 includes cue lights)")
+	.number("phase")
 	.describe("invert-answers", "whether to flip correct keys for each stimulus")
 	.describe("stimuli-file", ".yml file containing a list of stimuli")
 	.describe("correct-choices-file", ".yml file containing the correct choice for each stimulus")
@@ -75,7 +76,7 @@ function writeFileSafe(filename, data, forceWrite) {
 	}
 }
 
-function addStimuliParameters(stimuliName, correctKey) {
+function addStimuliParameters(stimuliName, correctKey, phase) {
 	let responses = {};
 	for (const key of alternativeChoices) {
 		if (key === correctKey) {
@@ -87,12 +88,15 @@ function addStimuliParameters(stimuliName, correctKey) {
 	};
 	responses[wrongChoice] = incorrectResponse;
 	responses["timeout"] = neutralResponse;
-	return {
+	let stimuliConfig = {
 		name: stimuliName,
 		frequency: 1,
-		cue_resp: [cueMap[correctKey]],
 		responses: responses,
 	};
+	if (phase <= 1) {
+		stimuliConfig.cue_resp = [cueMap[correctKey]];
+	}
+	return stimuliConfig;
 }
 
 function assignCorrectChoices(stimuli) {
@@ -132,18 +136,13 @@ function writeCorrectChoicesFile(correctChoices, forceWrite) {
 }
 
 function generateConfig(argv) {
-	if (argv.phase === 1) {
-		const stimuli = getStimuli(argv.stimuliFile);
-		const correctChoices = getCorrectChoices(stimuli, argv.correctChoicesFile, argv.f, argv.invertAnswers);
-		let config = {};
-		config.parameters = parameters;
-		config.stimulus_root = stimulus_root;
-		config.stimuli = stimuli.map((s) => addStimuliParameters(s, correctChoices[s]));
-		return config
-	}
-	else {
-		console.error("unknown phase");
-	}
+	const stimuli = getStimuli(argv.stimuliFile);
+	const correctChoices = getCorrectChoices(stimuli, argv.correctChoicesFile, argv.f, argv.invertAnswers);
+	let config = {};
+	config.parameters = parameters;
+	config.stimulus_root = stimulus_root;
+	config.stimuli = stimuli.map((s) => addStimuliParameters(s, correctChoices[s], argv.phase));
+	return config
 }
 
 saveConfig(outputConfigName, generateConfig(argv), argv.f);

@@ -1,2 +1,5 @@
 node_modules/
-chorus-config.json
+!package.json
+!package-lock.json
+*.json
+*.yml

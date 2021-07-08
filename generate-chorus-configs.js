@@ -6,7 +6,8 @@ const _ = require('underscore');
 
 const argv = require("yargs")
 	.usage("Generate config files for chorus noise 2 alternative choice experiment")
-	.describe("phase", "phase of training (1)")
+	.describe("phase", "phase of training (phase 1 includes cue lights)")
+	.number("phase")
 	.describe("invert-answers", "whether to flip correct keys for each stimulus")
 	.describe("experiment-file", ".yml file containing a list of stimuli and parameters")
 	.describe("correct-choices-file", ".yml file containing the correct choice for each stimulus")
@@ -26,6 +27,11 @@ const codedChoices = {
 };
 const alternativeChoices = ["peck_left", "peck_left"];
 const wrongChoice = "peck_right";
+const cueMap = {
+  "peck_left": "left_blue",
+  "peck_right": "right_blue",
+  "peck_center": "center_blue",
+};
 const correctResponse = {
 	p_reward: 1.0,
 	correct: true,
@@ -60,7 +66,7 @@ function writeFileSafe(filename, data, forceWrite) {
 	}
 }
 
-function addStimuliParameters(stimuliName, correctKey) {
+function addStimuliParameters(stimuliName, correctKey, phase) {
 	let responses = {};
 	for (const key of alternativeChoices) {
 		if (key === correctKey) {
@@ -72,11 +78,15 @@ function addStimuliParameters(stimuliName, correctKey) {
 	};
 	responses[wrongChoice] = incorrectResponse;
 	responses["timeout"] = neutralResponse;
-	return {
+	let stimuliConfig = {
 		name: stimuliName,
 		frequency: 1,
 		responses: responses,
 	};
+	if (phase <= 1) {
+		stimuliConfig.cue_resp = [cueMap[correctKey]];
+	}
+	return stimuliConfig;
 }
 
 function assignCorrectChoices(stimuli) {
@@ -144,19 +154,14 @@ function makeChoiceMap(choicesList) {
 }
 
 function generateOutputConfig(experimentConfig, correctChoicesFile, invertAnswers, phase, forceWrite) {
-	if (phase === 1) {
-		const stimuli = experimentConfig.stimuli;
-		const choiceMap = makeChoiceMap(experimentConfig.config.choices);
-		const correctChoices = getCorrectChoices(stimuli, correctChoicesFile, choiceMap, forceWrite, invertAnswers);
-		let config = {};
-		config.parameters = experimentConfig.config.parameters;
-		config.stimulus_root = experimentConfig.config.stimulus_root;
-		config.stimuli = stimuli.map((s) => addStimuliParameters(s, correctChoices[s]));
-		return config
-	}
-	else {
-		console.error("unknown phase");
-	}
+	const stimuli = experimentConfig.stimuli;
+	const choiceMap = makeChoiceMap(experimentConfig.config.choices);
+	const correctChoices = getCorrectChoices(stimuli, correctChoicesFile, choiceMap, forceWrite, invertAnswers);
+	let config = {};
+	config.parameters = experimentConfig.config.parameters;
+	config.stimulus_root = experimentConfig.config.stimulus_root;
+	config.stimuli = stimuli.map((s) => addStimuliParameters(s, correctChoices[s], phase));
+	return config;
 }
 
 const experimentConfig = parseYamlFile(argv.experimentFile);

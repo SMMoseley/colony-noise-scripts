@@ -2,8 +2,12 @@
   "name": "colony-noise-scripts",
   "version": "0.1.0",
   "description": "Two-Alternative Choice Colony-Noise Experiment",
+  "bin": {
+	  "generate": "./src/generate-config.js"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "bin": "${npm_package_bin_generate}"
   },
   "repository": {
     "type": "git",

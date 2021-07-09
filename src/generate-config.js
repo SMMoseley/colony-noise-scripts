@@ -7,18 +7,28 @@ const constants = require('./constants.js');
 
 const argv = require("yargs")
 	.usage("Generate config files for chorus noise 2 alternative choice experiment")
-	.describe("phase", "phase of training (phase 1 includes cue lights)")
-	.number("phase")
-	.describe("invert-answers", "whether to flip correct keys for each stimulus")
-	.boolean("invert-answers")
-	.describe("experiment-file", ".yml file containing a list of stimuli and parameters")
-	.demand("experiment-file")
-	.describe("correct-choices-file", ".yml file containing the correct choice for each stimulus")
-	.describe("f", "overwrite existing files")
-	.boolean("f")
-	.default({
-		"phase": 1,
-		"invert-answers": false,
+	.option("experiment-file", {
+		describe: "yaml file containing a list of stimuli and parameters",
+		demandOption: true,
+		normalize: true
+	})
+	.option("correct-choices-file", {
+		describe: "yaml file containing the correct choice for each stimulus. New file will be generated if not provided",
+		normalize: true,
+	})
+	.option("phase", {
+		describe: "phase of training (phase 1 includes cue lights)",
+		type: 'number',
+		default: 1
+	})
+	.option("invert-answers", {
+		describe: "whether to flip correct keys for each stimulus",
+		type: 'boolean'
+	})
+	.option("f", {
+		alias: 'force-write',
+		describe: "overwrite existing files",
+		type: 'boolean'
 	})
 	.argv;
 

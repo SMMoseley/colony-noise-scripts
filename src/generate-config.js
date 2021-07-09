@@ -45,9 +45,9 @@ io.saveObject(experimentConfig.config['output_config_name'], outputConfig, argv.
 function generateOutputConfig(experimentConfig, correctChoicesFile, invertAnswers, phase, forceWrite) {
 	const stimuli = experimentConfig.stimuli;
 	const choiceMap = new ChoiceCode(experimentConfig.config.choices);
-	const correctChoices = getCorrectChoices(stimuli, correctChoicesFile, choiceMap, forceWrite);
+	let correctChoices = getCorrectChoices(stimuli, correctChoicesFile, choiceMap, forceWrite);
 	if (invertAnswers) {
-		correctChouices = invertChoices(correctChoices);
+		correctChoices = invertChoices(correctChoices, choiceMap);
 	}
 	let config = {};
 	config.parameters = experimentConfig.config.parameters;
@@ -74,10 +74,10 @@ function getCorrectChoices(stimuli, correctChoicesFile, choiceMap, forceWrite, i
 	return decodedCorrectChoices;
 }
 
-function invertChoices(decodedChoices) {
+function invertChoices(decodedChoices, choiceMap) {
 		const encodedChoices = choiceMap.encodeValues(decodedChoices);
 		invertedChoices = Choice.invertValues(encodedChoices);
-		return choiceMap.decodeValues(correctChoices);
+		return choiceMap.decodeValues(invertedChoices);
 }
 
 function addStimuliParameters(experimentConfig, stimuliName, correctKey, phase) {

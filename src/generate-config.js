@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+const _ = require('underscore');
+const Fraction = require('fraction.js');
+
 const io = require('./io.js');
 const Choice = require('./choice.js').Choice;
 const ChoiceCode = require('./choice.js').ChoiceCode;
@@ -52,12 +55,13 @@ function generateOutputConfig(experimentConfig, correctChoicesFile, invertAnswer
 	let config = {};
 	config.parameters = experimentConfig.config.parameters;
 	config['stimulus_root'] = experimentConfig.config['stimulus_root'];
-	config.stimuli = stimuli.map((s) => addStimuliParameters(
-		experimentConfig.config,
-		s,
-		correctChoices[s],
+	config.stimuli = generateStimuliList(
+		stimuli,
+		correctChoices,
+		experimentConfig.config.choices,
+		experimentConfig.config.keys,
 		phase
-	));
+	);
 	return config;
 }
 
@@ -80,15 +84,48 @@ function invertChoices(decodedChoices, choiceMap) {
 		return choiceMap.decodeValues(invertedChoices);
 }
 
-function addStimuliParameters(experimentConfig, stimuliName, correctKey, phase) {
+function generateStimuliList(stimuli, correctChoices, choices, allKeys, phase) {
+	return _.flatten(stimuli.map((s) => {
+		const phase1_stim = addStimuliParameters(
+			s,
+			choices,
+			allKeys,
+			correctChoices[s],
+			true,
+		);
+		const phase2_stim = addStimuliParameters(
+			s,
+			choices,
+			allKeys,
+			correctChoices[s],
+			false,
+		);
+		if (phase <= 1) {
+			return phase1_stim;
+		}
+		else if (phase < 2) {
+			const frac = new Fraction(phase - 1);
+			phase2_stim.frequency = frac.n;
+			phase1_stim.frequency = frac.d - frac.n;
+			return [
+				phase1_stim,
+				phase2_stim
+			]
+		}
+		else {
+			return phase2_stim;
+		}
+	}));
+}
+
+function addStimuliParameters(stimulusName, choices, allKeys, correctKey, cueLights) {
 	let responses = {};
-	const alternativeChoices = experimentConfig.choices;
-	for (const key of experimentConfig.keys) {
+	for (const key of allKeys) {
 		let r;
 		if (key === correctKey) {
 			r = constants.correctResponse;
 		}
-		else if (alternativeChoices.indexOf(key) != -1) {
+		else if (choices.indexOf(key) != -1) {
 			r = constants.incorrectResponse;
 		}
 		else {
@@ -98,11 +135,11 @@ function addStimuliParameters(experimentConfig, stimuliName, correctKey, phase) 
 	};
 	responses["timeout"] = constants.neutralResponse;
 	let stimuliConfig = {
-		name: stimuliName,
+		name: stimulusName,
 		frequency: 1,
 		responses: responses,
 	};
-	if (phase <= 1 && correctKey) {
+	if (cueLights && correctKey) {
 		stimuliConfig['cue_resp'] = [constants.cueMap[correctKey]];
 	}
 	return stimuliConfig;

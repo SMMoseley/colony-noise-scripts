@@ -11,28 +11,33 @@ const constants = require('./constants.js');
 const argv = require("yargs")
 	.usage("Generate config files for chorus noise 2 alternative choice experiment")
 	.option("experiment-file", {
+		alias: 'e',
 		describe: "yaml file containing a list of stimuli and parameters",
 		demandOption: true,
 		normalize: true
 	})
 	.option("correct-choices-file", {
+		alias: 'c',
 		describe: "yaml file containing the correct choice for each stimulus. New file will be generated if not provided",
 		normalize: true,
 	})
 	.option("phase", {
+		alias: 'p',
 		describe: "phase of training (phase 1 includes cue lights)",
 		type: 'number',
 		default: 1
 	})
 	.option("invert-answers", {
+		alias: 'i',
 		describe: "whether to flip correct keys for each stimulus",
 		type: 'boolean'
 	})
-	.option("f", {
-		alias: 'force-write',
+	.option("force-write", {
+		alias: 'f',
 		describe: "overwrite existing files",
 		type: 'boolean'
 	})
+	.completion()
 	.argv;
 
 const experimentConfig = io.parseYamlFile(argv.experimentFile);
@@ -41,9 +46,14 @@ const outputConfig = generateOutputConfig(
 	argv.correctChoicesFile,
 	argv.invertAnswers,
 	argv.phase,
-	argv.f
+	argv.forceWrite
 );
-io.saveObject(experimentConfig.config['output_config_name'], outputConfig, argv.f);
+const outputConfigName = io.makeConfigName(
+	experimentConfig.config['output_config_name'],
+	argv.invertAnswers,
+	argv.phase
+);
+io.saveObject(outputConfigName, outputConfig, argv.forceWrite);
 
 function generateOutputConfig(experimentConfig, correctChoicesFile, invertAnswers, phase, forceWrite) {
 	const stimuli = experimentConfig.stimuli;

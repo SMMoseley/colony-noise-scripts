@@ -8,7 +8,7 @@ module.exports = class IO {
 
 	static writeFileSafe(filename, data, forceWrite) {
 		if (fs.existsSync(filename) && !forceWrite) {
-			throw new Error(filename + " already exists");
+			throw new Error(`${filename} already exists`);
 		}
 		else {
 			fs.writeFileSync(filename, data);
@@ -23,5 +23,12 @@ module.exports = class IO {
 	static writeCorrectChoicesFile(correctChoices, forceWrite) {
 		const output = YAML.stringify(correctChoices);
 		IO.writeFileSafe("correct_choices.yml", output, forceWrite);
+	}
+
+	static makeConfigName(name, invertAnswers, phase) {
+		if (invertAnswers) {
+			name += "-inverted";
+		}
+		return `${name}-p${phase}.json`;
 	}
 }

@@ -148,9 +148,11 @@ function addStimuliParameters(stimulusName, choices, allKeys, correctKey, cueLig
 		name: stimulusName,
 		frequency: 1,
 		responses: responses,
+		category: "no_cue_lights",
 	};
 	if (cueLights && correctKey) {
 		stimuliConfig['cue_resp'] = [constants.cueMap[correctKey]];
+		stimuliConfig.category = "cue_lights";
 	}
 	return stimuliConfig;
 }

@@ -143,7 +143,7 @@ function addStimuliParameters(stimulusName, choices, allKeys, correctKey, cueLig
 		}
 		responses[key] = r;
 	};
-	responses["timeout"] = constants.neutralResponse;
+	responses["timeout"] = constants.incorrectResponse;
 	let stimuliConfig = {
 		name: stimulusName,
 		frequency: 1,

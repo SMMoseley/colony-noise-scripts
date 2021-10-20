@@ -6,6 +6,7 @@ const Fraction = require('fraction.js');
 const io = require('./io.js');
 const Choice = require('./choice.js').Choice;
 const ChoiceCode = require('./choice.js').ChoiceCode;
+const ChoiceMap = require('./choice.js').ChoiceMap;
 const constants = require('./constants.js');
 
 const argv = require("yargs")
@@ -37,6 +38,10 @@ const argv = require("yargs")
 		describe: "overwrite existing files",
 		type: 'boolean'
 	})
+    .option("match-prefix", {
+        describe: "keys in correct choices file are viewed as prefixes of names, rather than whole names",
+        type: 'boolean',
+    })
 	.completion()
 	.argv;
 
@@ -46,7 +51,8 @@ const outputConfig = generateOutputConfig(
 	argv.correctChoicesFile,
 	argv.invertAnswers,
 	argv.phase,
-	argv.forceWrite
+	argv.forceWrite,
+    argv.matchPrefix,
 );
 const outputConfigName = io.makeConfigName(
 	experimentConfig.config['output_config_name'],
@@ -55,12 +61,12 @@ const outputConfigName = io.makeConfigName(
 );
 io.saveObject(outputConfigName, outputConfig, argv.forceWrite);
 
-function generateOutputConfig(experimentConfig, correctChoicesFile, invertAnswers, phase, forceWrite) {
+function generateOutputConfig(experimentConfig, correctChoicesFile, invertAnswers, phase, forceWrite, matchPrefix) {
 	const stimuli = experimentConfig.stimuli;
 	const choiceMap = new ChoiceCode(experimentConfig.config.choices);
-	let correctChoices = getCorrectChoices(stimuli, correctChoicesFile, choiceMap, forceWrite);
+	let correctChoices = getCorrectChoices(stimuli, correctChoicesFile, choiceMap, forceWrite, matchPrefix);
 	if (invertAnswers) {
-		correctChoices = invertChoices(correctChoices, choiceMap);
+		invertChoices(correctChoices, choiceMap);
 	}
 	let config = {};
 	config.parameters = experimentConfig.config.parameters;
@@ -75,7 +81,7 @@ function generateOutputConfig(experimentConfig, correctChoicesFile, invertAnswer
 	return config;
 }
 
-function getCorrectChoices(stimuli, correctChoicesFile, choiceMap, forceWrite, invertAnswers) {
+function getCorrectChoices(stimuli, correctChoicesFile, choiceMap, forceWrite, matchPrefix) {
 	let decodedCorrectChoices;
 	if (correctChoicesFile === undefined) {
 		correctChoices = Choice.assignChoicesToKeys(stimuli);
@@ -85,13 +91,13 @@ function getCorrectChoices(stimuli, correctChoicesFile, choiceMap, forceWrite, i
 	else {
 		decodedCorrectChoices = io.parseYamlFile(correctChoicesFile);
 	}
-	return decodedCorrectChoices;
+	return new ChoiceMap(decodedCorrectChoices, matchPrefix);
 }
 
 function invertChoices(decodedChoices, choiceMap) {
-		const encodedChoices = choiceMap.encodeValues(decodedChoices);
+		const encodedChoices = choiceMap.encodeValues(decodedChoices.map);
 		invertedChoices = Choice.invertValues(encodedChoices);
-		return choiceMap.decodeValues(invertedChoices);
+		decodedChoices.map = choiceMap.decodeValues(invertedChoices);
 }
 
 function generateStimuliList(stimuli, correctChoices, choices, allKeys, phase) {
@@ -100,14 +106,14 @@ function generateStimuliList(stimuli, correctChoices, choices, allKeys, phase) {
 			s,
 			choices,
 			allKeys,
-			correctChoices[s],
+			correctChoices.get(s),
 			true,
 		);
 		const phase2_stim = addStimuliParameters(
 			s,
 			choices,
 			allKeys,
-			correctChoices[s],
+			correctChoices.get(s),
 			false,
 		);
 		if (phase <= 1) {

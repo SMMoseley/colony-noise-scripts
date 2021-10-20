@@ -36,7 +36,7 @@ class Choice {
 	}
 }
 
-exports.ChoiceCode = class ChoiceCode { 
+exports.ChoiceCode = class ChoiceCode {
 	constructor(choicesList) {
 		this.decodeMap = {};
 		this.decodeMap[Choice.A.code] = choicesList[0];
@@ -64,4 +64,32 @@ exports.ChoiceCode = class ChoiceCode {
 	}
 }
 
+exports.ChoiceMap = class ChoiceMap  {
+    constructor(map, matchPrefix) {
+        this.map = map;
+        this.matchPrefix = matchPrefix;
+    }
+
+    get(key) {
+        if (this.matchPrefix) {
+            for (let property in this.map) {
+                if (this.map.hasOwnProperty(property) &&
+                    key.startsWith(property.toString())) {
+                    return this.map[property];
+                }
+            }
+        }
+        else {
+            const val = this.map[key];
+            if (val) {
+                return val;
+            }
+            else {
+                throw "correct choice not available in file"
+            }
+        }
+    }
+}
+
 exports.Choice = Choice;
+

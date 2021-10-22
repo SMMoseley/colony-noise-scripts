@@ -1,9 +1,9 @@
-use std::{collections::HashMap, path::Path, iter};
-use serde::{Serialize, Deserialize};
-use serde_with::skip_serializing_none;
+use rand::{seq::SliceRandom, thread_rng};
+use serde::{Deserialize, Serialize};
 use serde_value::Value;
+use serde_with::skip_serializing_none;
+use std::{collections::HashMap, iter, path::Path};
 use thiserror::Error as ThisError;
-
 
 #[derive(Serialize)]
 pub struct DecideConfig {
@@ -13,29 +13,36 @@ pub struct DecideConfig {
 }
 
 impl DecideConfig {
-    pub fn from(experiment: Experiment, correct_choices: CorrectChoices, invert: bool) -> Result<Self, Error> {
+    pub fn from(
+        experiment: Experiment,
+        correct_choices: CorrectChoices,
+        invert: bool,
+    ) -> Result<Self, Error> {
         let parameters = experiment.config.parameters;
         let stimulus_root = experiment.config.stimulus_root;
         let keys = experiment.config.keys;
         let choices = experiment.config.choices;
-        let stimuli = experiment.stimuli.into_iter()
+        let stimuli = experiment
+            .stimuli
+            .into_iter()
             .map(|name| {
-                let responses = keys.iter().chain(iter::once(&Response::timeout))
+                let responses = keys
+                    .iter()
+                    .chain(iter::once(&Response::timeout))
                     .map(|&response| {
                         let correct_response = *correct_choices.get(&name)?;
                         let response_meaning = if choices.contains(&response) {
                             if (response == correct_response) ^ invert {
-                            ResponseMeaning::Correct
+                                ResponseMeaning::Correct
                             } else {
                                 ResponseMeaning::Incorrect
                             }
-                        }
-                        else {
+                        } else {
                             ResponseMeaning::Incorrect
                         };
                         Ok((response, response_meaning.into()))
                     })
-                .collect::<Result<_,_>>()?;
+                    .collect::<Result<_, _>>()?;
                 Ok(StimulusConfig {
                     name,
                     frequency: 1,
@@ -44,7 +51,7 @@ impl DecideConfig {
                     responses,
                 })
             })
-        .collect::<Result<_,_>>()?;
+            .collect::<Result<_, _>>()?;
         Ok(DecideConfig {
             parameters,
             stimulus_root,
@@ -88,9 +95,21 @@ struct Outcome {
 impl From<ResponseMeaning> for Outcome {
     fn from(response: ResponseMeaning) -> Self {
         match response {
-            ResponseMeaning::Correct => Outcome { p_reward: Some(1.0), p_punish: None, correct: true },
-            ResponseMeaning::Incorrect => Outcome { p_punish: Some(1.0), p_reward: None, correct: false },
-            ResponseMeaning::Neutral => Outcome { p_punish: None, p_reward: None, correct: false },
+            ResponseMeaning::Correct => Outcome {
+                p_reward: Some(1.0),
+                p_punish: None,
+                correct: true,
+            },
+            ResponseMeaning::Incorrect => Outcome {
+                p_punish: Some(1.0),
+                p_reward: None,
+                correct: false,
+            },
+            ResponseMeaning::Neutral => Outcome {
+                p_punish: None,
+                p_reward: None,
+                correct: false,
+            },
         }
     }
 }
@@ -134,10 +153,35 @@ impl CorrectChoices {
             let matching_keys = self.0.keys().filter(|k| key.starts_with(k));
             match matching_keys.count() {
                 0 => Err(Error::StimMissingFromCorrectChoices(key.clone())),
-                1 => Ok(self.0.iter().filter(|(k, _)| key.starts_with(k)).next().unwrap().1),
+                1 => Ok(self
+                    .0
+                    .iter()
+                    .filter(|(k, _)| key.starts_with(k))
+                    .next()
+                    .unwrap()
+                    .1),
                 _ => Err(Error::AmbiguousPrefix(key.clone())),
             }
         }
+    }
+    pub fn random(experiment: &Experiment) -> Result<Self, Error> {
+        let mut rng = thread_rng();
+        Ok(CorrectChoices(
+            experiment
+                .stimuli
+                .iter()
+                .map(|s| {
+                    Ok((
+                        s.clone(),
+                        *experiment
+                            .config
+                            .choices
+                            .choose(&mut rng)
+                            .ok_or_else(|| Error::EmptyChoices)?,
+                    ))
+                })
+                .collect::<Result<_, _>>()?,
+        ))
     }
 }
 
@@ -156,4 +200,6 @@ pub enum Error {
     StimMissingFromCorrectChoices(StimulusName),
     #[error("The stimulus {0:?} matched multiple values in the correct choices file")]
     AmbiguousPrefix(StimulusName),
+    #[error("The list of choices provided in the experiment file should not be empty")]
+    EmptyChoices,
 }

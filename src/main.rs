@@ -4,8 +4,6 @@ extern crate clap;
 use anyhow::Result;
 use clap::{App, Arg};
 use decide_config::{CorrectChoices, DecideConfig, Experiment};
-use serde_json;
-use serde_yaml;
 
 fn main() -> Result<()> {
     let matches = App::new(crate_name!())

@@ -70,6 +70,7 @@ struct StimulusConfig {
     cue_resp: Option<Vec<Light>>,
 }
 
+#[allow(non_camel_case_types)]
 #[derive(Deserialize, Serialize, Hash, PartialEq, Eq, Clone, Copy)]
 enum Response {
     peck_left,
@@ -78,6 +79,7 @@ enum Response {
     timeout,
 }
 
+#[allow(unused)]
 enum ResponseMeaning {
     Correct,
     Incorrect,
@@ -114,6 +116,7 @@ impl From<ResponseMeaning> for Outcome {
     }
 }
 
+#[allow(dead_code, non_camel_case_types)]
 #[derive(Serialize, Hash, PartialEq, Eq)]
 enum Light {
     left_blue,
@@ -153,13 +156,7 @@ impl CorrectChoices {
             let matching_keys = self.0.keys().filter(|k| key.starts_with(k));
             match matching_keys.count() {
                 0 => Err(Error::StimMissingFromCorrectChoices(key.clone())),
-                1 => Ok(self
-                    .0
-                    .iter()
-                    .filter(|(k, _)| key.starts_with(k))
-                    .next()
-                    .unwrap()
-                    .1),
+                1 => Ok(self.0.iter().find(|(k, _)| key.starts_with(k)).unwrap().1),
                 _ => Err(Error::AmbiguousPrefix(key.clone())),
             }
         }
@@ -177,7 +174,7 @@ impl CorrectChoices {
                             .config
                             .choices
                             .choose(&mut rng)
-                            .ok_or_else(|| Error::EmptyChoices)?,
+                            .ok_or(Error::EmptyChoices)?,
                     ))
                 })
                 .collect::<Result<_, _>>()?,

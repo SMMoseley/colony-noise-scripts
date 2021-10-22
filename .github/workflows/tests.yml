@@ -152,8 +152,12 @@ jobs:
       - uses: actions/download-artifact@master
         with:
           name: version
+      - uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: 'toml-cli'
       - id: get_version
-        run: 'echo ::set-output "name=VERSION::$(cat ./version/version)"'
+        run: 'echo ::set-output "name=VERSION::$(toml Cargo.toml package.version)"'
         shell: bash
       - uses: actions/cache@v1
         with:
@@ -172,17 +176,6 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: 'toml-cli'
-      - shell: bash
-        env:
-          VERSION: '${{ steps.get_version.outputs.VERSION }}'
-        run: |
-          TEMP_FILE="$(mktemp)"
-          toml set Cargo.toml package.version "${VERSION:1}" > "$TEMP_FILE"
-          mv "$TEMP_FILE" Cargo.toml
       - uses: actions-rs/cargo@v1
         env:
           VERSION: '${{ steps.get_version.outputs.VERSION }}'

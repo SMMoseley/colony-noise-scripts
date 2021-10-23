@@ -17,3 +17,4 @@ thiserror = "1.0"
 anyhow = "1.0"
 clap = "2.33"
 rand = "0.8.4"
+strum = {version = "0.22.0", features = ["derive"] }

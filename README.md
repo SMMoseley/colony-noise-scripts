@@ -34,7 +34,8 @@ extra configs will be created that have the opposite correct choices.
 This behavior can be disabled by passing the `--no-inverted-config` flag.
 
 ## Example `experiment.yml
-```yaml
+```rust
+let experiment: decide_config::Experiment = serde_yaml::from_str("
 config:
   parameters: # these will be added as-is to the output config
     correct_timeout: false
@@ -42,10 +43,6 @@ config:
     init_position: peck_center
   output_config_name: 2ac-config # file extension will be added automatically
   stimulus_root: /root/colony-noise-stimuli/stimuli/clean_stim/
-  keys: # all possible responses ("timeout" is automatically added)
-    - peck_left
-    - peck_center
-    - peck_right
   choices: # the two alternative choices
     - peck_left
     - peck_right
@@ -70,4 +67,5 @@ stimuli: # a file will be generated for each group
     group: 10
   - name: ztqee46x_30
     group: 10
+").unwrap();
 ```

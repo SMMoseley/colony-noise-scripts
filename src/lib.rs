@@ -3,7 +3,8 @@ use rand::{seq::SliceRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use serde_value::Value;
 use serde_with::skip_serializing_none;
-use std::{collections::HashMap, fs::File, iter, path::Path};
+use std::{collections::HashMap, fs::File, path::Path};
+use strum::{EnumIter, IntoEnumIterator};
 use thiserror::Error as ThisError;
 
 #[derive(Serialize)]
@@ -22,7 +23,6 @@ impl DecideConfig {
     ) -> Result<Self, Error> {
         let parameters = experiment.config.parameters.clone();
         let stimulus_root = experiment.config.stimulus_root.clone();
-        let keys = &experiment.config.keys;
         let choices = &experiment.config.choices;
         let stimuli = experiment
             .stimuli
@@ -34,10 +34,8 @@ impl DecideConfig {
             })
             .map(|stim| {
                 let name = stim.name.clone();
-                let responses = keys
-                    .iter()
-                    .chain(iter::once(&Response::timeout))
-                    .map(|&response| {
+                let responses = Response::iter()
+                    .map(|response| {
                         let correct_response = *correct_choices.get(&name)?;
                         let response_meaning = if choices.contains(&response) {
                             if (response == correct_response) ^ invert {
@@ -85,7 +83,7 @@ struct StimulusConfig {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, Clone, Copy, EnumIter)]
 enum Response {
     peck_left,
     peck_center,
@@ -158,7 +156,6 @@ struct ExperimentConfig {
     parameters: Value,
     output_config_name: String,
     stimulus_root: Box<Path>,
-    keys: Vec<Response>,
     choices: Vec<Response>,
 }
 
@@ -224,3 +221,7 @@ pub enum Error {
     #[error("The list of choices provided in the experiment file should not be empty")]
     EmptyChoices,
 }
+
+#[doc = include_str!("../README.md")]
+#[cfg(doctest)]
+pub struct ReadmeDoctests;

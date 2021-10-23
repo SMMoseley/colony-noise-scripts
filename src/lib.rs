@@ -1,8 +1,9 @@
+use anyhow::Result as AnyhowResult;
 use rand::{seq::SliceRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use serde_value::Value;
 use serde_with::skip_serializing_none;
-use std::{collections::HashMap, iter, path::Path};
+use std::{collections::HashMap, fs::File, iter, path::Path};
 use thiserror::Error as ThisError;
 
 #[derive(Serialize)]
@@ -14,18 +15,25 @@ pub struct DecideConfig {
 
 impl DecideConfig {
     pub fn from(
-        experiment: Experiment,
-        correct_choices: CorrectChoices,
+        experiment: &Experiment,
+        correct_choices: &CorrectChoices,
         invert: bool,
+        group: Option<u32>,
     ) -> Result<Self, Error> {
-        let parameters = experiment.config.parameters;
-        let stimulus_root = experiment.config.stimulus_root;
-        let keys = experiment.config.keys;
-        let choices = experiment.config.choices;
+        let parameters = experiment.config.parameters.clone();
+        let stimulus_root = experiment.config.stimulus_root.clone();
+        let keys = &experiment.config.keys;
+        let choices = &experiment.config.choices;
         let stimuli = experiment
             .stimuli
-            .into_iter()
-            .map(|name| {
+            .iter()
+            .filter(|stim| {
+                stim.group
+                    .and_then(|sg| group.map(|g| sg <= g))
+                    .unwrap_or(true)
+            })
+            .map(|stim| {
+                let name = stim.name.clone();
                 let responses = keys
                     .iter()
                     .chain(iter::once(&Response::timeout))
@@ -57,6 +65,12 @@ impl DecideConfig {
             stimulus_root,
             stimuli,
         })
+    }
+
+    pub fn to_json(&self, config_name: String) -> AnyhowResult<()> {
+        let config_file = File::create(config_name)?;
+        serde_json::to_writer_pretty(config_file, &self)?;
+        Ok(())
     }
 }
 
@@ -127,12 +141,15 @@ enum Light {
 #[derive(Deserialize)]
 pub struct Experiment {
     config: ExperimentConfig,
-    stimuli: Vec<StimulusName>,
+    stimuli: Vec<StimulusWithGroup>,
 }
 
 impl Experiment {
     pub fn get_name(&self) -> String {
         self.config.output_config_name.clone()
+    }
+    pub fn groups(&self) -> impl Iterator<Item = Option<u32>> + '_ {
+        self.stimuli.iter().map(|stim| stim.group)
     }
 }
 
@@ -169,7 +186,7 @@ impl CorrectChoices {
                 .iter()
                 .map(|s| {
                     Ok((
-                        s.clone(),
+                        s.name.clone(),
                         *experiment
                             .config
                             .choices
@@ -189,6 +206,13 @@ impl StimulusName {
     pub fn starts_with(&self, pat: &StimulusName) -> bool {
         self.0.starts_with(&pat.0)
     }
+}
+
+#[skip_serializing_none]
+#[derive(Deserialize)]
+struct StimulusWithGroup {
+    name: StimulusName,
+    group: Option<u32>,
 }
 
 #[derive(ThisError, Debug)]

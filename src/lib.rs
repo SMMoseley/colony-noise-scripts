@@ -1,4 +1,5 @@
 use anyhow::Result as AnyhowResult;
+use itertools::Itertools;
 use rand::{seq::SliceRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use serde_value::Value;
@@ -147,7 +148,7 @@ impl Experiment {
         self.config.output_config_name.clone()
     }
     pub fn groups(&self) -> impl Iterator<Item = Option<u32>> + '_ {
-        self.stimuli.iter().map(|stim| stim.group)
+        self.stimuli.iter().map(|stim| stim.group).unique()
     }
 }
 

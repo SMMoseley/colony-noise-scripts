@@ -33,8 +33,8 @@ By default, in order to control for the inherent properties of the stimuli,
 extra configs will be created that have the opposite correct choices.
 This behavior can be disabled by passing the `--no-inverted-config` flag.
 
-## Example `experiment.yml
-```rust
+## Example `experiment.yml`
+```
 let experiment: decide_config::Experiment = serde_yaml::from_str("
 config:
   parameters: # these will be added as-is to the output config

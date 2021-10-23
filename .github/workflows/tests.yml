@@ -151,13 +151,13 @@ jobs:
           command: install
           args: 'toml-cli'
       - id: get_repository_name
-        run: echo ::set-output name=REPOSITORY_NAME::$(toml Cargo.toml package.name)
+        run: echo ::set-output name=REPOSITORY_NAME::$(toml get Cargo.toml package.name)
         shell: bash
       - uses: actions/download-artifact@master
         with:
           name: version
       - id: get_version
-        run: 'echo ::set-output "name=VERSION::$(toml Cargo.toml package.version)"'
+        run: 'echo ::set-output "name=VERSION::$(toml get Cargo.toml package.version)"'
         shell: bash
       - uses: actions/cache@v1
         with:
@@ -201,7 +201,7 @@ jobs:
           command: install
           args: 'toml-cli'
       - id: get_repository_name
-        run: echo ::set-output name=REPOSITORY_NAME::$(toml Cargo.toml package.name)
+        run: echo ::set-output name=REPOSITORY_NAME::$(toml get Cargo.toml package.name)
         shell: bash
       - uses: actions/download-artifact@master
         with:

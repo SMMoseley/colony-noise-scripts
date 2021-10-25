@@ -2,10 +2,8 @@
 name = "decide-config"
 version = "0.1.2"
 authors = ["Jonah Weissman <jonahrweissman@gmail.com>"]
-description = "Generate config files for chorus noise 2 alternative choice experiment"
+description = "generate Decide experiment config files for two alternative choice paradigm"
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

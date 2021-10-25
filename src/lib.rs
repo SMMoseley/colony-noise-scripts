@@ -4,7 +4,7 @@ use rand::{seq::SliceRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use serde_value::Value;
 use serde_with::skip_serializing_none;
-use std::{collections::HashMap, fs::File, path::Path};
+use std::{collections::HashMap, fs::File, iter, path::Path};
 use strum::{EnumIter, IntoEnumIterator};
 use thiserror::Error as ThisError;
 
@@ -178,21 +178,29 @@ impl CorrectChoices {
     }
     pub fn random(experiment: &Experiment) -> Result<Self, Error> {
         let mut rng = thread_rng();
+        let mut choices = experiment.config.choices.clone();
+        choices.shuffle(&mut rng);
+        if choices.is_empty() {
+            return Err(Error::EmptyChoices);
+        }
+        let stimuli_per_response = experiment.stimuli.len() / choices.len();
+        let remainder = experiment.stimuli.len() % choices.len();
+        // we create a vector with one response per stimulus,
+        // with evenly divided assignment as much as possible
+        let mut matched_choices: Vec<Response> = choices
+            .iter()
+            .map(|&c| iter::repeat(c).take(stimuli_per_response))
+            .flatten()
+            .chain(choices.iter().take(remainder).copied())
+            .collect();
+        matched_choices.shuffle(&mut rng);
         Ok(CorrectChoices(
             experiment
                 .stimuli
                 .iter()
-                .map(|s| {
-                    Ok((
-                        s.name.clone(),
-                        *experiment
-                            .config
-                            .choices
-                            .choose(&mut rng)
-                            .ok_or(Error::EmptyChoices)?,
-                    ))
-                })
-                .collect::<Result<_, _>>()?,
+                .map(|s| s.name.clone())
+                .zip(matched_choices)
+                .collect(),
         ))
     }
 }
@@ -207,7 +215,7 @@ impl StimulusName {
 }
 
 #[skip_serializing_none]
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct StimulusWithGroup {
     name: StimulusName,
     group: Option<u32>,

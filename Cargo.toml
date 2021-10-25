@@ -1,6 +1,6 @@
 [package]
 name = "decide-config"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Jonah Weissman <jonahrweissman@gmail.com>"]
 description = "Generate config files for chorus noise 2 alternative choice experiment"
 edition = "2018"

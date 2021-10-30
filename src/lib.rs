@@ -234,3 +234,45 @@ pub enum Error {
 #[doc = include_str!("../README.md")]
 #[cfg(doctest)]
 pub struct ReadmeDoctests;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! exp {
+        () => {
+            serde_yaml::from_str::<Experiment>(
+                "
+            config:
+                parameters:
+                output_config_name: config
+                stimulus_root: /
+                choices:
+                    - peck_left
+                    - peck_right
+            stimuli:
+                - name: a
+                - name: b
+                - name: c
+                - name: d
+                - name: e
+                - name: f
+        ",
+            )
+            .unwrap()
+        };
+    }
+
+    #[test]
+    fn random() {
+        let exp = exp!();
+        let correct = CorrectChoices::random(&exp).unwrap();
+        let n_stimuli = exp.stimuli.len();
+        let n_choices = exp.config.choices.len();
+        let by_response = |resp| correct.0.values().filter(|&&x| x == resp).count();
+        let left_count = by_response(Response::peck_left);
+        let right_count = by_response(Response::peck_right);
+        assert!(left_count <= n_stimuli / n_choices + 1);
+        assert!(right_count <= n_stimuli / n_choices + 1);
+    }
+}

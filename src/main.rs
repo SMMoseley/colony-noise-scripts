@@ -38,32 +38,23 @@ fn main() -> Result<()> {
     match experiment.groups() {
         Some(groups) => {
             for group in groups {
-                DecideConfig::from(&experiment, &correct_choices, false, Some(group))?.to_json(format!(
-                        "{}-segmented{}.json",
-                        experiment.get_name(),
-                        group
-                        ))?;
+                DecideConfig::from(&experiment, &correct_choices, false, Some(group))?
+                    .to_json(format!("{}-segmented{}.json", experiment.get_name(), group))?;
                 if !matches.is_present("no_invert") {
-                    DecideConfig::from(&experiment, &correct_choices, true, Some(group))?.to_json(format!(
-                            "{}-inverted-segmented{}.json",
-                            experiment.get_name(),
-                            group
-                            ))?;
+                    DecideConfig::from(&experiment, &correct_choices, true, Some(group))?.to_json(
+                        format!("{}-inverted-segmented{}.json", experiment.get_name(), group),
+                    )?;
                 }
             }
         }
         None => {
-            DecideConfig::from(&experiment, &correct_choices, false, None)?.to_json(format!(
-                    "{}.json",
-                    experiment.get_name(),
-                    ))?;
+            DecideConfig::from(&experiment, &correct_choices, false, None)?
+                .to_json(format!("{}.json", experiment.get_name(),))?;
             if !matches.is_present("no_invert") {
-                DecideConfig::from(&experiment, &correct_choices, true, None)?.to_json(format!(
-                        "{}-inverted.json",
-                        experiment.get_name(),
-                        ))?;
+                DecideConfig::from(&experiment, &correct_choices, true, None)?
+                    .to_json(format!("{}-inverted.json", experiment.get_name(),))?;
             }
-        },
+        }
     };
     Ok(())
 }

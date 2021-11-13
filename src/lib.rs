@@ -4,7 +4,12 @@ use rand::{seq::SliceRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use serde_value::Value;
 use serde_with::skip_serializing_none;
-use std::{collections::HashMap, fs::File, iter, path::Path};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fs::File,
+    iter,
+    path::Path,
+};
 use strum::{EnumIter, IntoEnumIterator};
 use thiserror::Error as ThisError;
 
@@ -78,13 +83,13 @@ impl DecideConfig {
 struct StimulusConfig {
     name: StimulusName,
     frequency: u32,
-    responses: HashMap<Response, Outcome>,
+    responses: BTreeMap<Response, Outcome>,
     category: Option<String>,
     cue_resp: Option<Vec<Light>>,
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, Clone, Copy, EnumIter)]
+#[derive(Deserialize, Serialize, PartialEq, Eq, Clone, Copy, EnumIter, PartialOrd, Ord)]
 enum Response {
     peck_left,
     peck_center,

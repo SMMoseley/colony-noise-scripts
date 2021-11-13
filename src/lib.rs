@@ -43,7 +43,7 @@ impl DecideConfig {
                 let responses = Response::iter()
                     .map(|response| {
                         let correct_response = *correct_choices.get(&name)?;
-                        let response_meaning = if choices.contains(&response) {
+                        let response_meaning = if response == choices.0 || response == choices.1 {
                             if (response == correct_response) ^ invert {
                                 ResponseMeaning::Correct
                             } else {
@@ -171,7 +171,7 @@ struct ExperimentConfig {
     parameters: Value,
     output_config_name: String,
     stimulus_root: Box<Path>,
-    choices: Vec<Response>,
+    choices: (Response, Response),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -192,7 +192,7 @@ impl CorrectChoices {
     }
     pub fn random(experiment: &Experiment) -> Result<Self, Error> {
         let mut rng = thread_rng();
-        let mut choices = experiment.config.choices.clone();
+        let mut choices = vec![experiment.config.choices.0, experiment.config.choices.1];
         choices.shuffle(&mut rng);
         if choices.is_empty() {
             return Err(Error::EmptyChoices);
@@ -282,7 +282,7 @@ mod tests {
         let exp = exp!();
         let correct = CorrectChoices::random(&exp).unwrap();
         let n_stimuli = exp.stimuli.len();
-        let n_choices = exp.config.choices.len();
+        let n_choices = 2;
         let by_response = |resp| correct.0.values().filter(|&&x| x == resp).count();
         let left_count = by_response(Response::peck_left);
         let right_count = by_response(Response::peck_right);

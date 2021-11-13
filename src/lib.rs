@@ -20,7 +20,7 @@ impl DecideConfig {
         experiment: &Experiment,
         correct_choices: &CorrectChoices,
         invert: bool,
-        group: Option<u32>,
+        group: Option<i32>,
     ) -> Result<Self, Error> {
         let parameters = experiment.config.parameters.clone();
         let stimulus_root = experiment.config.stimulus_root.clone();
@@ -147,7 +147,7 @@ impl Experiment {
     pub fn get_name(&self) -> String {
         self.config.output_config_name.clone()
     }
-    pub fn groups(&self) -> impl Iterator<Item = Option<u32>> + '_ {
+    pub fn groups(&self) -> impl Iterator<Item = Option<i32>> + '_ {
         self.stimuli.iter().map(|stim| stim.group).unique()
     }
 }
@@ -218,7 +218,7 @@ impl StimulusName {
 #[derive(Deserialize, Debug)]
 struct StimulusWithGroup {
     name: StimulusName,
-    group: Option<u32>,
+    group: Option<i32>,
 }
 
 #[derive(ThisError, Debug)]

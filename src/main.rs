@@ -35,22 +35,35 @@ fn main() -> Result<()> {
             }
         }?,
     };
-    for group in experiment.groups() {
-        let segmented = group
-            .map(|g| format!("-segmented{}", g))
-            .unwrap_or_else(|| "".into());
-        DecideConfig::from(&experiment, &correct_choices, false, group)?.to_json(format!(
-            "{}{}.json",
-            experiment.get_name(),
-            segmented
-        ))?;
-        if !matches.is_present("no_invert") {
-            DecideConfig::from(&experiment, &correct_choices, true, group)?.to_json(format!(
-                "{}-inverted{}.json",
-                experiment.get_name(),
-                segmented
-            ))?;
+    match experiment.groups() {
+        Some(groups) => {
+            for group in groups {
+                DecideConfig::from(&experiment, &correct_choices, false, Some(group))?.to_json(format!(
+                        "{}-segmented{}.json",
+                        experiment.get_name(),
+                        group
+                        ))?;
+                if !matches.is_present("no_invert") {
+                    DecideConfig::from(&experiment, &correct_choices, true, Some(group))?.to_json(format!(
+                            "{}-inverted-segmented{}.json",
+                            experiment.get_name(),
+                            group
+                            ))?;
+                }
+            }
         }
-    }
+        None => {
+            DecideConfig::from(&experiment, &correct_choices, false, None)?.to_json(format!(
+                    "{}.json",
+                    experiment.get_name(),
+                    ))?;
+            if !matches.is_present("no_invert") {
+                DecideConfig::from(&experiment, &correct_choices, true, None)?.to_json(format!(
+                        "{}-inverted.json",
+                        experiment.get_name(),
+                        ))?;
+            }
+        },
+    };
     Ok(())
 }

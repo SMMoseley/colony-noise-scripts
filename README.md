@@ -7,8 +7,8 @@ For example stimuli and configuration, read [colony-noise-stimuli](https://githu
 git clone https://github.com/SMMoseley/colony-noise-stimuli
 git clone https://github.com/SMMoseley/colony-noise-scripts
 cd colony-noise-scripts
-cargo install --patch .
-cd ../colony-noise-stimuli/center-init
+cargo install --path .
+cd ../colony-noise-stimuli/experiment
 decide-config experiment.yml
 ```
 

@@ -147,8 +147,12 @@ impl Experiment {
     pub fn get_name(&self) -> String {
         self.config.output_config_name.clone()
     }
-    pub fn groups(&self) -> impl Iterator<Item = Option<i32>> + '_ {
-        self.stimuli.iter().map(|stim| stim.group).unique()
+    pub fn groups(&self) -> Option<Vec<i32>> {
+        let groups: Vec<_> = self.stimuli.iter().filter_map(|stim| stim.group).unique().collect();
+        match groups.is_empty() {
+            false => Some(groups),
+            true => None,
+        }
     }
 }
 
@@ -264,7 +268,7 @@ mod tests {
     }
 
     #[test]
-    fn random() {
+    fn random_correctchoices() {
         let exp = exp!();
         let correct = CorrectChoices::random(&exp).unwrap();
         let n_stimuli = exp.stimuli.len();
@@ -275,4 +279,24 @@ mod tests {
         assert!(left_count <= n_stimuli / n_choices + 1);
         assert!(right_count <= n_stimuli / n_choices + 1);
     }
+
+    #[test]
+    fn groups_list_none() {
+        let mut exp = exp!();
+        exp.stimuli = vec![
+            StimulusWithGroup{name: StimulusName("a".into()), group: None},
+        ];
+        assert_eq!(exp.groups(), None);
+    }
+
+    #[test]
+    fn groups_list_some() {
+        let mut exp = exp!();
+        exp.stimuli = vec![
+            StimulusWithGroup{name: StimulusName("a".into()), group: None},
+            StimulusWithGroup{name: StimulusName("b".into()), group: Some(1)},
+        ];
+        assert_eq!(exp.groups(), Some(vec![1]));
+    }
+
 }

@@ -7,11 +7,15 @@ use decide_config::{CorrectChoices, Experiment};
 const DEFAULT_CORRECT_CHOICES_FILE: &str = "correct_choices.yml";
 
 fn main() -> Result<()> {
+    let correct_choices_help = &format!(
+        "name for file with correct response for each stimulus [default: {}]",
+        DEFAULT_CORRECT_CHOICES_FILE
+    );
     let matches = clap_app!(
     @app (app_from_crate!())
     (@arg experiment: <EXPERIMENT_YML> "yaml file containing stimuli, responses, and parameters")
     (@arg correct: -c --("correct-choices") <CORRECT_YML>
-     !required "name for file with correct response for each stimulus")
+     !required correct_choices_help)
     (@arg no_invert: -i --("no-inverted-config") "skip generating an inverted answers config")
     )
     .get_matches();

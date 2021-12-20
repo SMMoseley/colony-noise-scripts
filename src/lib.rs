@@ -98,6 +98,7 @@ impl Experiment {
             .unwrap_or(&vec![self.scenes.foreground.clone()])
             .iter()
             .map(|set| {
+                //panic!("set should be a subset of foreground");
                 self.stimuli()
                     .into_iter()
                     .filter(|name| set.contains(name.foreground()))
@@ -117,16 +118,12 @@ struct ExperimentConfig {
     output_config_name: String,
     stimulus_root: Box<Path>,
     choices: (Response, Response),
-    stimuli_subsets: Option<Vec<Vec<StimulusBaseName>>>,
+    stimuli_subsets: Option<Vec<Vec<StimulusBaseName>>>, // optional naming
     include_background: bool,
 }
 
-#[allow(unused)]
 #[derive(Deserialize)]
 struct ScenesConfig {
-    padding: f64,
-    gap: f64,
-    ramp: f64,
     #[serde(rename = "foreground-dBFS")]
     foreground_dbfs: Vec<i32>,
     #[serde(rename = "background-dBFS")]

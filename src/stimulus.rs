@@ -18,7 +18,7 @@ impl StimulusName {
 
     pub fn group(&self) -> Option<i32> {
         match self {
-            ForegroundBackground(_, _, _, bg_db) => Some(*bg_db),
+            ForegroundBackground(_, fg_db, _, bg_db) => Some(bg_db - fg_db),
             Foreground(_, _) => None,
         }
     }
@@ -47,7 +47,7 @@ impl Serialize for StimulusName {
             ForegroundBackground(fg, fg_db, bg, bg_db) => {
                 serializer.serialize_str(&format!("{}{}_{}{}", fg, fg_db, bg, bg_db))
             }
-            Foreground(fg, fg_db) => serializer.serialize_str(&format!("{}_{}", fg, fg_db)),
+            Foreground(fg, fg_db) => serializer.serialize_str(&format!("{}_{}", fg, fg_db.abs())),
         }
     }
 }

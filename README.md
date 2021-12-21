@@ -43,8 +43,8 @@ decide:
     - peck_left
     - peck_right
   stimuli_subsets:
-    - [0oq8ifcb, vekibwgj, g29wxi4q, l1a3ltpy]
-    - [ztqee46x, jkexyrd5, mrel2o09, w08e1crn]
+    set0: [0oq8ifcb, vekibwgj, g29wxi4q, l1a3ltpy]
+    set1: [ztqee46x, jkexyrd5, mrel2o09, w08e1crn]
   include_background: true
 scenes:
   padding: 2.0

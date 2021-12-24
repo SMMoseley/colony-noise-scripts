@@ -1,4 +1,4 @@
-use super::{Error, Experiment, Response, StimulusBaseName, StimulusName};
+use super::{Error, Experiment, Response, Stimulus, StimulusAttribute};
 use itertools::Itertools;
 use rand::{seq::SliceRandom, thread_rng};
 use serde::{Deserialize, Serialize};
@@ -6,11 +6,11 @@ use std::convert::TryInto;
 use std::{collections::HashMap, iter};
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct CorrectChoices(HashMap<StimulusBaseName, Response>);
+pub struct CorrectChoices(HashMap<StimulusAttribute, Response>);
 
 impl CorrectChoices {
-    pub fn get(&self, key: &StimulusName) -> Result<&Response, Error> {
-        let key = key.foreground();
+    pub fn get(&self, key: &Stimulus) -> Result<&Response, Error> {
+        let key = key.decisive_attribute();
         self.0
             .get(key)
             .ok_or_else(|| Error::StimMissingFromCorrectChoices(key.clone()))
@@ -47,13 +47,16 @@ impl CorrectChoices {
 
     pub fn random(experiment: &Experiment) -> Result<Self, Error> {
         let mut rng = thread_rng();
-        let mut choices = vec![experiment.decide.choices.0, experiment.decide.choices.1];
+        let mut choices = experiment.choices();
         choices.shuffle(&mut rng);
         if choices.is_empty() {
             return Err(Error::EmptyChoices);
         }
-        let stimuli_per_response = experiment.scenes.foreground.len() / choices.len();
-        let remainder = experiment.scenes.foreground.len() % choices.len();
+        let all_options = experiment
+            .list_variants(experiment.decisive_attribute())
+            .unwrap();
+        let stimuli_per_response = all_options.len() / choices.len();
+        let remainder = all_options.len() % choices.len();
         // we create a vector with one response per stimulus,
         // with evenly divided assignment as much as possible
         let mut matched_choices: Vec<Response> = choices
@@ -64,10 +67,8 @@ impl CorrectChoices {
             .collect();
         matched_choices.shuffle(&mut rng);
         Ok(CorrectChoices(
-            experiment
-                .scenes
-                .foreground
-                .iter()
+            all_options
+                .into_iter()
                 .cloned()
                 .zip(matched_choices)
                 .collect(),
@@ -85,26 +86,23 @@ mod tests {
                 "
             decide:
                 parameters:
-                output_config_name: config
+                    a: b
                 stimulus_root: /
+                name_format: config
                 choices:
                     - peck_left
                     - peck_right
-                include_background: false
-            scenes:
-                padding: 0
-                gap: 0
-                ramp: 0
+            stimuli:
+                format: \"{foreground}\"
+                decisive_attribute: foreground
                 foreground:
-                    - a
-                    - b
-                    - c
-                    - d
-                    - e
-                    - f
-                foreground-dBFS: []
-                background: []
-                background-dBFS: []
+                    values:
+                        - a
+                        - b
+                        - c
+                        - d
+                        - e
+                        - f
         ",
             )
             .unwrap()
@@ -115,7 +113,7 @@ mod tests {
     fn random_correctchoices() {
         let exp = exp!();
         let correct = CorrectChoices::random(&exp).unwrap();
-        let n_stimuli = exp.scenes.foreground.len();
+        let n_stimuli = exp.list_variants(exp.decisive_attribute()).unwrap().len();
         let n_choices = 2;
         let by_response = |resp| correct.0.values().filter(|&&x| x == resp).count();
         let left_count = by_response(Response::peck_left);

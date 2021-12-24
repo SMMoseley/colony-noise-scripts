@@ -1,4 +1,4 @@
-use super::{CorrectChoices, Error, StimulusName};
+use super::{CorrectChoices, Error, Stimulus};
 use serde::{Deserialize, Serialize};
 use serde_value::Value;
 use serde_with::skip_serializing_none;
@@ -6,14 +6,18 @@ use std::{collections::BTreeMap, fs::File, path::Path};
 use strum::{EnumIter, IntoEnumIterator};
 
 #[derive(Serialize)]
-pub struct DecideConfig {
+pub struct DecideConfig<'a> {
     parameters: Value,
     stimulus_root: Box<Path>,
-    stimuli: Vec<StimulusConfig>,
+    stimuli: Vec<StimulusConfig<'a>>,
 }
 
-impl DecideConfig {
-    pub fn new(stimuli: Vec<StimulusConfig>, stimulus_root: Box<Path>, parameters: Value) -> Self {
+impl<'a> DecideConfig<'a> {
+    pub fn new(
+        stimuli: Vec<StimulusConfig<'a>>,
+        stimulus_root: Box<Path>,
+        parameters: Value,
+    ) -> Self {
         DecideConfig {
             stimuli,
             stimulus_root,
@@ -30,16 +34,16 @@ impl DecideConfig {
 
 #[skip_serializing_none]
 #[derive(Serialize)]
-pub struct StimulusConfig {
-    name: StimulusName,
+pub struct StimulusConfig<'a> {
+    name: Stimulus<'a>,
     frequency: u32,
     responses: BTreeMap<Response, Outcome>,
     category: Option<String>,
     cue_resp: Option<Vec<Light>>,
 }
 
-impl StimulusConfig {
-    pub fn from(name: StimulusName, correct_choices: &CorrectChoices) -> Result<Self, Error> {
+impl<'a> StimulusConfig<'a> {
+    pub fn from(name: Stimulus<'a>, correct_choices: &CorrectChoices) -> Result<Self, Error> {
         let responses = Response::iter()
             .map(|response| {
                 let correct_response = *correct_choices.get(&name)?;

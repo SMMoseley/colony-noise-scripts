@@ -27,7 +27,6 @@ correct response.
 
 By default, in order to control for the inherent properties of the stimuli,
 extra configs will be created that have the opposite correct choices.
-This behavior can be disabled by passing the `--no-inverted-config` flag.
 
 ## Example `experiment.yml`
 ```
@@ -37,33 +36,28 @@ decide:
     correct_timeout: false
     rand_replace: true
     init_position: peck_center
-  output_config_name: 2ac-config # file extension will be added automatically
-  stimulus_root: /root/colony-noise-stimuli/stimuli/snr_stim/
+  name_format: '2ac-config' # file extension will be added automatically
+  stimulus_root: /root/colony-noise-stimuli/stimuli/clean_stim/
   choices: # the two alternative choices
     - peck_left
     - peck_right
-  stimuli_subsets:
-    set0: [0oq8ifcb, vekibwgj, g29wxi4q, l1a3ltpy]
-    set1: [ztqee46x, jkexyrd5, mrel2o09, w08e1crn]
-  include_background: true
-scenes:
-  padding: 2.0
-  gap: 0.5
-  ramp: 0.002
-  foreground-dBFS: [-30]
-  background-dBFS: [-20, -25, -30, -35, -40, -45, -50, -55, -60, -65, -100]
+stimuli:
+  format: '{foreground}_{fg_db}'
+  decisive_attribute: foreground
   foreground:
-    - g29wxi4q
-    - c95zqjxq
-    - vekibwgj
-    - 0oq8ifcb
-    - igmi8fxa
-    - p1mrfhop
-    - l1a3ltpy
-    - 9ex2k0dy
-    - ztqee46x
-    - jkexyrd5
-  background:
-    - h22zy3zp
+    values:
+      - g29wxi4q
+      - c95zqjxq
+      - vekibwgj
+      - 0oq8ifcb
+      - igmi8fxa
+      - p1mrfhop
+      - l1a3ltpy
+      - 9ex2k0dy
+      - ztqee46x
+      - jkexyrd5
+  fg_db:
+    values:
+      - 30
 ").unwrap();
 ```

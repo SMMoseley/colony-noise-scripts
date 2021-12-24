@@ -1,7 +1,11 @@
+#[macro_use]
+extern crate log;
+use itertools::Itertools;
+use std::{borrow::Borrow, collections::HashMap, iter};
 use thiserror::Error as ThisError;
 
 mod stimulus;
-use stimulus::{StimulusBaseName, StimulusName};
+use stimulus::{AttributeLabel, Stimulus, StimulusAttribute};
 
 mod choices;
 pub use choices::CorrectChoices;
@@ -12,46 +16,76 @@ pub use decide::{DecideConfig, Response, StimulusConfig};
 mod experiment;
 pub use experiment::Experiment;
 
-pub type ConfigWithParams = (bool, Option<i32>, String, DecideConfig);
-pub fn make_configs(
-    experiment: &Experiment,
-    correct_choices: &CorrectChoices,
-) -> Result<Vec<ConfigWithParams>, Error> {
+pub type ConfigWithParams<'a> = (DecideConfig<'a>, HashMap<String, StimulusAttribute>);
+pub fn make_configs<'a, 'b>(
+    experiment: &'a Experiment,
+    correct_choices: &'b CorrectChoices,
+) -> Result<Vec<ConfigWithParams<'a>>, Error> {
     let inverted_choices = correct_choices.inverted();
-    let groups = experiment.groups();
+    let format_arguments = experiment.named_args()?;
+    trace!("named args: {:?}", format_arguments);
+    info!("Starting config iteration");
+    debug_assert!(!experiment.stimuli_subsets().is_empty());
+    let mut attributes = experiment
+        .attribute_labels()
+        .filter_map(|label| {
+            if format_arguments.contains(label) {
+                experiment
+                    .list_variants(label)
+                    .map(|x| iter::repeat(label).zip(x.into_iter()))
+            } else {
+                None
+            }
+        })
+        .multi_cartesian_product();
     itertools::iproduct!(
         experiment.stimuli_subsets().into_iter(),
-        groups,
+        iter::once(attributes.next().unwrap_or_else(Vec::new)).chain(attributes),
         vec![true, false]
     )
-    .map(|((set_name, set), group, invert)| {
-        let correct = if invert {
+    .map(|((set_name, set), attributes, inverted)| {
+        trace!("item {:?}", attributes);
+        let correct = if inverted {
             &inverted_choices
         } else {
             correct_choices
         };
         let stimuli = set
             .into_iter()
-            .filter(|stim| {
-                stim.group
-                    .and_then(|sg| group.map(|g| sg <= g))
-                    .unwrap_or(true)
-            })
-            .map(|stim| StimulusConfig::from(stim.name, correct))
+            .filter(experiment.make_filter(&attributes.iter()))
+            .map(|stim| StimulusConfig::from(stim, correct))
             .collect::<Result<Vec<_>, _>>()?;
-        let parameters = experiment.decide.parameters.clone();
-        let stimulus_root = experiment.decide.stimulus_root.clone();
+        let parameters = experiment.decide_parameters();
+        let stimulus_root = experiment.stimulus_root();
         let config = DecideConfig::new(stimuli, stimulus_root, parameters);
-        Ok((invert, group, set_name, config))
+        let mut attributes: HashMap<_, _> = attributes
+            .into_iter()
+            .map(|(k, v)| {
+                (
+                    String::from(<AttributeLabel as Borrow<str>>::borrow(k)),
+                    v.clone(),
+                )
+            })
+            .collect();
+        attributes.insert(String::from("set"), StimulusAttribute::from(&set_name[..]));
+        attributes.insert(
+            String::from("inverted"),
+            StimulusAttribute::from(if inverted { "Yes" } else { "No" }),
+        );
+        Ok((config, attributes))
     })
     .collect()
 }
 
 #[derive(ThisError, Debug)]
 pub enum Error {
-    #[error("Could not find stimulus {0} in correct choices file")]
-    StimMissingFromCorrectChoices(StimulusBaseName),
-    #[error("The list of choices provided in the experiment file should not be empty")]
+    #[error("the attribute listed for `decisive_attribute` was not found")]
+    DecisiveAttributeNotFound,
+    #[error("could not parse format string")]
+    Format,
+    #[error("could not find stimulus attribute {0} in correct choices file")]
+    StimMissingFromCorrectChoices(StimulusAttribute),
+    #[error("the list of choices provided in the experiment file should not be empty")]
     EmptyChoices,
 }
 

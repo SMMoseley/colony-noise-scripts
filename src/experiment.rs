@@ -1,98 +1,124 @@
-use super::{stimulus::StimulusWithGroup, Error, Response, StimulusBaseName, StimulusName};
-use itertools::Itertools;
+use super::{
+    stimulus::StimuliConfig, AttributeLabel, Error, Response, Stimulus, StimulusAttribute,
+};
+use dynfmt::{curly::SimpleCurlyFormat, Format};
 use serde::Deserialize;
 use serde_value::Value;
 use std::{collections::HashMap, convert::TryFrom, path::Path};
 
 #[derive(Deserialize)]
 pub struct Experiment {
-    pub decide: ExperimentConfig,
-    pub scenes: ScenesConfig,
+    decide: ExperimentConfig,
+    stimuli: StimuliConfig,
 }
 
 impl Experiment {
-    pub fn get_name(&self) -> String {
-        self.decide.output_config_name.clone()
+    pub fn stimuli(&self) -> Vec<Stimulus<'_>> {
+        self.stimuli.stimuli()
     }
 
-    pub fn groups(&self) -> Vec<Option<i32>> {
-        let groups: Vec<_> = self
-            .stimuli()
-            .into_iter()
-            .filter_map(|stim| stim.group())
-            .unique()
-            .collect();
-        match groups.is_empty() {
-            true => vec![None],
-            false => groups.into_iter().map(Some).collect(),
-        }
+    pub fn named_args(&self) -> Result<Vec<AttributeLabel>, Error> {
+        let args = self.decide.named_args()?;
+        args.into_iter()
+            .map(|name| {
+                self.stimuli
+                    .label_by_str(name)
+                    .ok_or(Error::Format)
+                    .map(|label| label.clone())
+            })
+            .collect()
     }
 
-    pub fn stimuli(&self) -> Vec<StimulusName> {
-        let foregrounds = self
-            .scenes
-            .foreground
-            .iter()
-            .cartesian_product(self.scenes.foreground_dbfs.iter().copied());
-        let backgrounds = self
-            .scenes
-            .background
-            .iter()
-            .cartesian_product(self.scenes.background_dbfs.iter().copied());
-        if self.decide.include_background {
-            foregrounds
-                .cartesian_product(backgrounds)
-                .map(StimulusName::from)
-                .collect()
-        } else {
-            foregrounds.map(StimulusName::from).collect()
-        }
+    pub fn name_format(&self) -> String {
+        self.decide.name_format.clone()
     }
-    pub fn stimuli_subsets(&self) -> Vec<(String, Vec<StimulusWithGroup>)> {
+
+    pub fn stimuli_subsets(&self) -> Vec<(String, Vec<Stimulus<'_>>)> {
         self.decide
             .stimuli_subsets
             .as_ref()
-            .unwrap_or(&{
-                let mut default_map = HashMap::new();
-                default_map.insert(String::from("all_stimuli"), self.scenes.foreground.clone());
-                default_map
-            })
-            .iter()
-            .map(|(name, set)| {
-                let set = self
-                    .stimuli()
-                    .into_iter()
-                    .filter(|name| set.contains(name.foreground()))
-                    .map(|name| {
-                        let group = name.group();
-                        StimulusWithGroup { name, group }
+            .map(|subsets| {
+                subsets
+                    .iter()
+                    .map(|(name, attribute_set)| {
+                        let set = self
+                            .stimuli()
+                            .into_iter()
+                            .filter(|name| attribute_set.contains(name.decisive_attribute()))
+                            .collect();
+                        (name.clone(), set)
                     })
-                    .collect();
-                (name.clone(), set)
+                    .collect()
             })
-            .collect()
+            .unwrap_or_else(|| vec![(String::from("All"), self.stimuli())])
+    }
+
+    pub fn attribute_labels(&self) -> impl Iterator<Item = &AttributeLabel> {
+        self.stimuli.attribute_labels()
+    }
+
+    pub fn list_variants(&self, label: &AttributeLabel) -> Option<Vec<&StimulusAttribute>> {
+        self.stimuli.list_variants(label)
+    }
+
+    pub fn make_filter<'a, I>(&self, attributes: &'a I) -> impl FnMut(&Stimulus) -> bool + 'a
+    where
+        I: IntoIterator<Item = &'a (&'a AttributeLabel, &'a StimulusAttribute)> + Clone,
+    {
+        move |stimulus: &Stimulus| {
+            let mut attributes = attributes.clone().into_iter();
+            attributes.all(|x| stimulus.matches(x))
+        }
+    }
+
+    pub fn decide_parameters(&self) -> Value {
+        self.decide.parameters.clone()
+    }
+
+    pub fn stimulus_root(&self) -> Box<Path> {
+        self.decide.stimulus_root.clone()
+    }
+
+    pub fn choices(&self) -> Vec<Response> {
+        vec![self.decide.choices.0, self.decide.choices.1]
+    }
+
+    pub fn decisive_attribute(&self) -> &AttributeLabel {
+        self.stimuli.decisive_attribute()
     }
 }
 
 #[derive(Deserialize)]
 struct PermissiveExperimentConfig {
     parameters: Value,
-    output_config_name: String,
+    name_format: String,
     stimulus_root: Box<Path>,
     choices: (Response, Response),
-    stimuli_subsets: Option<HashMap<String, Vec<StimulusBaseName>>>,
-    include_background: bool,
+    stimuli_subsets: Option<HashMap<String, Vec<StimulusAttribute>>>,
 }
 
 #[derive(Deserialize)]
 #[serde(try_from = "PermissiveExperimentConfig")]
 pub struct ExperimentConfig {
     pub parameters: Value,
-    pub output_config_name: String,
+    pub name_format: String,
     pub stimulus_root: Box<Path>,
     pub choices: (Response, Response),
-    pub stimuli_subsets: Option<HashMap<String, Vec<StimulusBaseName>>>,
-    pub include_background: bool,
+    pub stimuli_subsets: Option<HashMap<String, Vec<StimulusAttribute>>>,
+}
+
+impl ExperimentConfig {
+    pub fn named_args(&self) -> Result<Vec<&str>, Error> {
+        SimpleCurlyFormat
+            .iter_args(&self.name_format)
+            .map_err(|_| Error::Format)?
+            .map(|arg_spec| {
+                trace!("found named arg");
+                let arg_spec = arg_spec.map_err(|_| Error::Format)?;
+                Ok(&self.name_format[arg_spec.start() + 1..arg_spec.end() - 1])
+            })
+            .collect()
+    }
 }
 
 impl TryFrom<PermissiveExperimentConfig> for ExperimentConfig {
@@ -106,21 +132,32 @@ impl TryFrom<PermissiveExperimentConfig> for ExperimentConfig {
         //}
         Ok(ExperimentConfig {
             parameters: exp.parameters,
-            output_config_name: exp.output_config_name,
+            name_format: exp.name_format,
             stimulus_root: exp.stimulus_root,
             choices: exp.choices,
             stimuli_subsets: exp.stimuli_subsets,
-            include_background: exp.include_background,
         })
     }
 }
 
-#[derive(Deserialize)]
-pub struct ScenesConfig {
-    #[serde(rename = "foreground-dBFS")]
-    pub foreground_dbfs: Vec<i32>,
-    #[serde(rename = "background-dBFS")]
-    pub background_dbfs: Vec<i32>,
-    pub foreground: Vec<StimulusBaseName>,
-    pub background: Vec<StimulusBaseName>,
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn named_args() {
+        let exp: ExperimentConfig = serde_yaml::from_str(
+            "
+            parameters:
+            name_format: \"{a}{b}{c}\"
+            stimulus_root: /
+            choices:
+                - peck_left
+                - peck_right
+            ",
+        )
+        .unwrap();
+        let named_args = exp.named_args().unwrap();
+        assert_eq!(named_args, vec!["a", "b", "c"]);
+    }
 }

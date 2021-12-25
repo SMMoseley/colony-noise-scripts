@@ -5,56 +5,39 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize, Serializer};
 use std::{borrow::Borrow, collections::HashMap, convert::TryFrom, fmt, iter};
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Stimulus<'a> {
     attributes: HashMap<AttributeLabel, StimulusAttribute>,
-    format: &'a str,
-    decisive_attribute: &'a AttributeLabel,
+    config: &'a StimuliConfig,
 }
 
 impl<'a> Stimulus<'a> {
-    pub fn new<M>(attributes: M, format: &'a str, decisive_attribute: &'a AttributeLabel) -> Self
+    pub fn new<M>(attributes: M, config: &'a StimuliConfig) -> Self
     where
         M: Into<HashMap<AttributeLabel, StimulusAttribute>>,
     {
         let attributes = attributes.into();
-        Stimulus {
-            attributes,
-            format,
-            decisive_attribute,
-        }
+        Stimulus { attributes, config }
     }
 
     pub fn decisive_attribute(&self) -> &StimulusAttribute {
         self.attributes
-            .get(self.decisive_attribute)
-            .expect("Stimulus does not contain decisive_attribute")
+            .get(&self.config.decisive_attribute)
+            .expect("StimuliConfig does not contain decisive_attribute")
     }
 
     pub fn matches(&self, (label, attribute): &(&AttributeLabel, &StimulusAttribute)) -> bool {
+        let inclusive_less_than = self.config.values.get(*label).unwrap().inclusive_less_than;
         self.attributes
             .get(*label)
             .map(|a| {
-                if label.inclusive_less_than {
+                if inclusive_less_than {
                     a <= attribute
                 } else {
                     a == *attribute
                 }
             })
             .unwrap_or(false)
-    }
-
-    // shouldn't have to do this
-    pub fn attributes(&self) -> HashMap<String, StimulusAttribute> {
-        self.attributes
-            .iter()
-            .map(|(k, v)| {
-                (
-                    String::from(<AttributeLabel as Borrow<str>>::borrow(k)),
-                    v.clone(),
-                )
-            })
-            .collect()
     }
 }
 
@@ -65,8 +48,8 @@ impl<'a> Serialize for Stimulus<'a> {
     {
         serializer.serialize_str(
             &SimpleCurlyFormat
-                .format(self.format, self.attributes())
-                .unwrap_or_else(|_| panic!("could not format {:?}", self.attributes))
+                .format(&self.config.format, &self.attributes)
+                .unwrap_or_else(|e| panic!("could not format {:?} {:?}", self.attributes, e))
                 .into_owned(),
         )
     }
@@ -111,23 +94,17 @@ impl fmt::Display for StimulusAttribute {
 }
 
 #[derive(Serialize, PartialEq, Hash, Eq, Clone, Debug)]
-pub struct AttributeLabel {
-    label: String,
-    inclusive_less_than: bool,
-}
+pub struct AttributeLabel(String);
 
 impl Borrow<str> for AttributeLabel {
     fn borrow(&self) -> &str {
-        &self.label
+        &self.0
     }
 }
 
 impl From<&str> for AttributeLabel {
     fn from(label: &str) -> Self {
-        AttributeLabel {
-            label: label.into(),
-            inclusive_less_than: false,
-        }
+        AttributeLabel(label.into())
     }
 }
 
@@ -139,32 +116,30 @@ struct PermissiveStimuliConfig {
     attributes: HashMap<String, AttributeConfig>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct AttributeConfig {
     values: Vec<StimulusAttribute>,
     #[serde(default)]
     inclusive_less_than: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(try_from = "PermissiveStimuliConfig")]
 pub struct StimuliConfig {
     format: String,
     decisive_attribute: AttributeLabel,
-    values: HashMap<AttributeLabel, Vec<StimulusAttribute>>,
+    values: HashMap<AttributeLabel, AttributeConfig>,
 }
 
 impl StimuliConfig {
     pub fn stimuli(&self) -> Vec<Stimulus<'_>> {
         self.values
             .iter()
-            .map(|(label, values)| iter::repeat(label.clone()).zip(values.iter().cloned()))
+            .map(|(label, config)| iter::repeat(label.clone()).zip(config.values.iter().cloned()))
             .multi_cartesian_product()
             .map(|attributes| {
                 let attributes: HashMap<_, _> = attributes.into_iter().collect();
-                let format = &self.format;
-                let decisive_attribute = &self.decisive_attribute;
-                Stimulus::new(attributes, format, decisive_attribute)
+                Stimulus::new(attributes, self)
             })
             .collect()
     }
@@ -176,7 +151,7 @@ impl StimuliConfig {
     pub fn list_variants(&self, label: &AttributeLabel) -> Option<Vec<&StimulusAttribute>> {
         self.values
             .get(label)
-            .map(|attribute_config| attribute_config.iter().collect())
+            .map(|attribute_config| attribute_config.values.iter().collect())
     }
 
     pub fn label_by_str<'a>(&'a self, label: &str) -> Option<&'a AttributeLabel> {
@@ -187,7 +162,7 @@ impl StimuliConfig {
         attributes: &'a HashMap<AttributeLabel, T>,
         label: &str,
     ) -> Option<&'a AttributeLabel> {
-        attributes.keys().find(|l| l.label == label)
+        attributes.keys().find(|AttributeLabel(l)| l == label)
     }
 
     pub fn decisive_attribute(&self) -> &AttributeLabel {
@@ -203,21 +178,10 @@ impl<'a> TryFrom<PermissiveStimuliConfig> for StimuliConfig {
         let values = config
             .attributes
             .into_iter()
-            .map(
-                |(
-                    label,
-                    AttributeConfig {
-                        inclusive_less_than,
-                        values,
-                    },
-                )| {
-                    let label = AttributeLabel {
-                        label,
-                        inclusive_less_than,
-                    };
-                    (label, values)
-                },
-            )
+            .map(|(label, values)| {
+                let label = AttributeLabel(label);
+                (label, values)
+            })
             .collect();
         let decisive_attribute = Self::attribute_label_by_str(&values, &config.decisive_attribute)
             .ok_or(Error::DecisiveAttributeNotFound)?
@@ -227,5 +191,30 @@ impl<'a> TryFrom<PermissiveStimuliConfig> for StimuliConfig {
             decisive_attribute,
             values,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serialize_stimulus() {
+        let attributes: HashMap<AttributeLabel, StimulusAttribute> =
+            vec![("a", "hi"), ("b", "hello")]
+                .into_iter()
+                .map(|(k, v)| (AttributeLabel::from(k), StimulusAttribute::from(v)))
+                .collect();
+        let values: HashMap<AttributeLabel, AttributeConfig> = HashMap::new();
+        let format = String::from("{a} {b}");
+        let decisive_attribute = AttributeLabel::from("a");
+        assert!(attributes.get("a").is_some());
+        let config = StimuliConfig {
+            format,
+            decisive_attribute,
+            values,
+        };
+        let stim = Stimulus::new(attributes, &config);
+        assert_eq!(serde_json::to_string(&stim).unwrap(), "\"hi hello\"");
     }
 }

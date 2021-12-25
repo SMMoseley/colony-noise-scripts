@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate log;
 use itertools::Itertools;
-use std::{borrow::Borrow, collections::HashMap, iter};
+use std::{collections::HashMap, iter};
 use thiserror::Error as ThisError;
 
 mod stimulus;
@@ -16,7 +16,7 @@ pub use decide::{DecideConfig, Response, StimulusConfig};
 mod experiment;
 pub use experiment::Experiment;
 
-pub type ConfigWithParams<'a> = (DecideConfig<'a>, HashMap<String, StimulusAttribute>);
+pub type ConfigWithParams<'a> = (DecideConfig<'a>, HashMap<AttributeLabel, StimulusAttribute>);
 pub fn make_configs<'a, 'b>(
     experiment: &'a Experiment,
     correct_choices: &'b CorrectChoices,
@@ -60,16 +60,14 @@ pub fn make_configs<'a, 'b>(
         let config = DecideConfig::new(stimuli, stimulus_root, parameters);
         let mut attributes: HashMap<_, _> = attributes
             .into_iter()
-            .map(|(k, v)| {
-                (
-                    String::from(<AttributeLabel as Borrow<str>>::borrow(k)),
-                    v.clone(),
-                )
-            })
+            .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
-        attributes.insert(String::from("set"), StimulusAttribute::from(&set_name[..]));
         attributes.insert(
-            String::from("inverted"),
+            AttributeLabel::from("set"),
+            StimulusAttribute::from(&set_name[..]),
+        );
+        attributes.insert(
+            AttributeLabel::from("inverted"),
             StimulusAttribute::from(if inverted { "Yes" } else { "No" }),
         );
         Ok((config, attributes))

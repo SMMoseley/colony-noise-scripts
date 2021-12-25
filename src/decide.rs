@@ -14,10 +14,11 @@ pub struct DecideConfig<'a> {
 
 impl<'a> DecideConfig<'a> {
     pub fn new(
-        stimuli: Vec<StimulusConfig<'a>>,
+        mut stimuli: Vec<StimulusConfig<'a>>,
         stimulus_root: Box<Path>,
         parameters: Value,
     ) -> Self {
+        stimuli.sort_by_key(|x| serde_json::to_string(&x.name).unwrap());
         DecideConfig {
             stimuli,
             stimulus_root,

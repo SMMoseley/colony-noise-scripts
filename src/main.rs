@@ -5,7 +5,8 @@ use std::{fs::File, io};
 #[macro_use]
 extern crate clap;
 use anyhow::{Context, Result};
-use decide_config::{CorrectChoices, Error, Experiment};
+use clap::ArgMatches;
+use decide_config::{CorrectChoices, DecideConfig, Error, Experiment};
 use dynfmt::{Format, SimpleCurlyFormat};
 
 const DEFAULT_CORRECT_CHOICES_FILE: &str = "correct_choices.yml";
@@ -18,10 +19,23 @@ fn main() -> Result<()> {
     );
     let matches = clap_app!(
     @app (app_from_crate!())
-    (@arg experiment: <EXPERIMENT_YML> "yaml file containing stimuli, responses, and parameters")
-    (@arg correct: -c --("correct-choices") <CORRECT_YML> !required correct_choices_help)
+    (@arg experiment: [EXPERIMENT_YML] "yaml file containing stimuli, responses, and parameters")
+    (@arg correct: -c --("correct-choices") [CORRECT_YML] correct_choices_help)
+    (@subcommand diff =>
+        (about: "compare two decide-config JSON output files")
+        (@arg file1: <FILE1>)
+        (@arg file2: <FILE2>)
+    )
     )
     .get_matches();
+
+    match matches.subcommand() {
+        ("diff", Some(matches)) => config_diff(matches),
+        _ => generate_configs(matches),
+    }
+}
+
+fn generate_configs(matches: ArgMatches) -> Result<()> {
     let experiment: Experiment = serde_yaml::from_reader(
         File::open(matches.value_of("experiment").unwrap())
             .context("could not open experiment file")?,
@@ -58,4 +72,19 @@ fn main() -> Result<()> {
         config.to_json(formatted_name)?;
     }
     Ok(())
+}
+
+fn config_diff(matches: &ArgMatches) -> Result<()> {
+    let file1_name = matches.value_of("file1").unwrap();
+    let file2_name = matches.value_of("file2").unwrap();
+    let file1: DecideConfig = serde_json::from_reader(File::open(file1_name)?)
+        .with_context(|| format!("could not parse {}", file1_name))?;
+    let file2: DecideConfig = serde_json::from_reader(File::open(file2_name)?)
+        .with_context(|| format!("could not parse {}", file2_name))?;
+    if file1 == file2 {
+        std::process::exit(0)
+    } else {
+        eprintln!("Files differ!");
+        std::process::exit(1)
+    }
 }

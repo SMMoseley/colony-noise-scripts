@@ -20,3 +20,5 @@ itertools = "0.10.1"
 dynfmt = {version = "0.1.5", features = ["curly"] }
 pretty_env_logger = "0.4.0"
 log = "0.4.14"
+fixed = "1.11.0"
+fixed-macro = "1.1.1"

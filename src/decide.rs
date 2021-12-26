@@ -5,20 +5,20 @@ use serde_with::skip_serializing_none;
 use std::{collections::BTreeMap, fs::File, path::Path};
 use strum::{EnumIter, IntoEnumIterator};
 
-#[derive(Serialize)]
-pub struct DecideConfig<'a> {
+#[derive(Serialize, Deserialize)]
+pub struct DecideConfig {
     parameters: Value,
     stimulus_root: Box<Path>,
-    stimuli: Vec<StimulusConfig<'a>>,
+    stimuli: Vec<StimulusConfig>,
 }
 
-impl<'a> DecideConfig<'a> {
+impl DecideConfig {
     pub fn new(
-        mut stimuli: Vec<StimulusConfig<'a>>,
+        mut stimuli: Vec<StimulusConfig>,
         stimulus_root: Box<Path>,
         parameters: Value,
     ) -> Self {
-        stimuli.sort_by_key(|x| serde_json::to_string(&x.name).unwrap());
+        stimuli.sort_by_cached_key(|x| x.name.to_string());
         DecideConfig {
             stimuli,
             stimulus_root,
@@ -34,17 +34,17 @@ impl<'a> DecideConfig<'a> {
 }
 
 #[skip_serializing_none]
-#[derive(Serialize)]
-pub struct StimulusConfig<'a> {
-    name: Stimulus<'a>,
+#[derive(Serialize, Deserialize)]
+pub struct StimulusConfig {
+    name: String,
     frequency: u32,
     responses: BTreeMap<Response, Outcome>,
     category: Option<String>,
     cue_resp: Option<Vec<Light>>,
 }
 
-impl<'a> StimulusConfig<'a> {
-    pub fn from(name: Stimulus<'a>, correct_choices: &CorrectChoices) -> Result<Self, Error> {
+impl StimulusConfig {
+    pub fn from(name: Stimulus<'_>, correct_choices: &CorrectChoices) -> Result<Self, Error> {
         let responses = Response::iter()
             .map(|response| {
                 let correct_response = *correct_choices.get(&name)?;
@@ -57,7 +57,7 @@ impl<'a> StimulusConfig<'a> {
             })
             .collect::<Result<_, _>>()?;
         Ok(StimulusConfig {
-            name,
+            name: name.into(),
             frequency: 1,
             category: Some("no_cue_lights".into()),
             cue_resp: None,
@@ -85,7 +85,7 @@ enum ResponseMeaning {
 }
 
 #[skip_serializing_none]
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct Outcome {
     p_reward: Option<f64>,
     p_punish: Option<f64>,
@@ -115,7 +115,7 @@ impl From<ResponseMeaning> for Outcome {
 }
 
 #[allow(dead_code, non_camel_case_types)]
-#[derive(Serialize, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Hash, PartialEq, Eq)]
 enum Light {
     left_blue,
     center_blue,

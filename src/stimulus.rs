@@ -2,10 +2,11 @@ use super::Error;
 use core::cmp::{Ordering, PartialOrd};
 use dynfmt::{curly::SimpleCurlyFormat, Format};
 use itertools::Itertools;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use std::{borrow::Borrow, collections::HashMap, convert::TryFrom, fmt, iter};
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Clone, Debug)]
+#[serde(into = "String")]
 pub struct Stimulus<'a> {
     attributes: HashMap<AttributeLabel, StimulusAttribute>,
     config: &'a StimuliConfig,
@@ -41,17 +42,12 @@ impl<'a> Stimulus<'a> {
     }
 }
 
-impl<'a> Serialize for Stimulus<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(
-            &SimpleCurlyFormat
-                .format(&self.config.format, &self.attributes)
-                .unwrap_or_else(|e| panic!("could not format {:?} {:?}", self.attributes, e))
-                .into_owned(),
-        )
+impl<'a> From<Stimulus<'a>> for String {
+    fn from(stimulus: Stimulus) -> Self {
+        SimpleCurlyFormat
+            .format(&stimulus.config.format, &stimulus.attributes)
+            .unwrap_or_else(|e| panic!("could not format {:?} {:?}", stimulus.attributes, e))
+            .into_owned()
     }
 }
 

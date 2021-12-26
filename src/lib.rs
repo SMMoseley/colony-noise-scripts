@@ -16,7 +16,7 @@ pub use decide::{DecideConfig, Response, StimulusConfig};
 mod experiment;
 pub use experiment::Experiment;
 
-pub type ConfigWithParams<'a> = (DecideConfig<'a>, HashMap<AttributeLabel, StimulusAttribute>);
+pub type ConfigWithParams<'a> = (DecideConfig, HashMap<AttributeLabel, StimulusAttribute>);
 pub fn make_configs<'a, 'b>(
     experiment: &'a Experiment,
     correct_choices: &'b CorrectChoices,

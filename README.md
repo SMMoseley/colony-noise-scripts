@@ -28,6 +28,22 @@ correct response.
 By default, in order to control for the inherent properties of the stimuli,
 extra configs will be created that have the opposite correct choices.
 
+### Comparing files
+
+This script comes with the functionality of determining if two JSON output files
+will produce the same experimental behavior. It will output a zero exit code if the two files
+are the same, and a non-zero exit code and an error message if they differ.
+You can use it as follows:
+
+```bash
+decide-config diff file1.json file2.json
+```
+
+```bash
+git difftool --extcmd="decide-config diff"
+```
+
+
 ## Example `experiment.yml`
 ```
 let experiment: decide_config::Experiment = serde_yaml::from_str("

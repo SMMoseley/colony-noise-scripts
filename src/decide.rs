@@ -5,23 +5,26 @@ use fixed_macro::fixed;
 use serde::{Deserialize, Serialize};
 use serde_value::Value;
 use serde_with::skip_serializing_none;
-use std::{collections::BTreeMap, fs::File, path::Path};
+use std::{
+    collections::{BTreeMap, HashSet},
+    fs::File,
+    path::Path,
+};
 use strum::{EnumIter, IntoEnumIterator};
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
 pub struct DecideConfig {
     parameters: Value,
     stimulus_root: Box<Path>,
-    stimuli: Vec<StimulusConfig>,
+    stimuli: HashSet<StimulusConfig>,
 }
 
 impl DecideConfig {
-    pub fn new(
-        mut stimuli: Vec<StimulusConfig>,
-        stimulus_root: Box<Path>,
-        parameters: Value,
-    ) -> Self {
-        stimuli.sort_by_cached_key(|x| x.name.to_string());
+    pub fn new<I>(stimuli: I, stimulus_root: Box<Path>, parameters: Value) -> Self
+    where
+        I: IntoIterator<Item = StimulusConfig>,
+    {
+        let stimuli = stimuli.into_iter().collect();
         DecideConfig {
             stimuli,
             stimulus_root,
@@ -37,7 +40,7 @@ impl DecideConfig {
 }
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct StimulusConfig {
     name: String,
     frequency: u32,
@@ -87,7 +90,7 @@ enum ResponseMeaning {
     Neutral,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(into = "f64")]
 #[serde(from = "f64")]
 struct Decimal(I20F12);
@@ -105,7 +108,7 @@ impl From<Decimal> for f64 {
 }
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
 struct Outcome {
     p_reward: Option<Decimal>,
     p_punish: Option<Decimal>,

@@ -1,9 +1,8 @@
-use super::Error;
 use core::cmp::{Ordering, PartialOrd};
 use dynfmt::{curly::SimpleCurlyFormat, Format};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::{borrow::Borrow, collections::HashMap, convert::TryFrom, fmt, iter};
+use std::{borrow::Borrow, collections::HashMap, fmt, iter};
 
 #[derive(Serialize, Clone, Debug)]
 #[serde(into = "String")]
@@ -89,7 +88,7 @@ impl fmt::Display for StimulusAttribute {
     }
 }
 
-#[derive(Serialize, PartialEq, Hash, Eq, Clone, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Hash, Eq, Clone, Debug)]
 pub struct AttributeLabel(String);
 
 impl Borrow<str> for AttributeLabel {
@@ -104,14 +103,6 @@ impl From<&str> for AttributeLabel {
     }
 }
 
-#[derive(Deserialize)]
-struct PermissiveStimuliConfig {
-    format: String,
-    decisive_attribute: String,
-    #[serde(flatten)]
-    attributes: HashMap<String, AttributeConfig>,
-}
-
 #[derive(Deserialize, Debug)]
 struct AttributeConfig {
     values: Vec<StimulusAttribute>,
@@ -120,10 +111,10 @@ struct AttributeConfig {
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(try_from = "PermissiveStimuliConfig")]
 pub struct StimuliConfig {
     format: String,
     decisive_attribute: AttributeLabel,
+    #[serde(flatten)]
     values: HashMap<AttributeLabel, AttributeConfig>,
 }
 
@@ -144,7 +135,7 @@ impl StimuliConfig {
         self.values.keys()
     }
 
-    pub fn list_variants(&self, label: &AttributeLabel) -> Option<Vec<&StimulusAttribute>> {
+    pub fn list_values(&self, label: &AttributeLabel) -> Option<Vec<&StimulusAttribute>> {
         self.values
             .get(label)
             .map(|attribute_config| attribute_config.values.iter().collect())
@@ -163,30 +154,6 @@ impl StimuliConfig {
 
     pub fn decisive_attribute(&self) -> &AttributeLabel {
         &self.decisive_attribute
-    }
-}
-
-impl<'a> TryFrom<PermissiveStimuliConfig> for StimuliConfig {
-    type Error = Error;
-
-    fn try_from(config: PermissiveStimuliConfig) -> Result<Self, Self::Error> {
-        let format = config.format;
-        let values = config
-            .attributes
-            .into_iter()
-            .map(|(label, values)| {
-                let label = AttributeLabel(label);
-                (label, values)
-            })
-            .collect();
-        let decisive_attribute = Self::attribute_label_by_str(&values, &config.decisive_attribute)
-            .ok_or(Error::DecisiveAttributeNotFound)?
-            .clone();
-        Ok(StimuliConfig {
-            format,
-            decisive_attribute,
-            values,
-        })
     }
 }
 

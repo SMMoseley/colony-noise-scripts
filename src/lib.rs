@@ -26,13 +26,13 @@ pub fn make_configs<'a, 'b>(
     trace!("named args: {:?}", format_arguments);
     info!("Starting config iteration");
     debug_assert!(!experiment.stimuli_subsets().is_empty());
-    let mut attributes = experiment
+    let mut held_constant_attributes = experiment
         .attribute_labels()
         .filter_map(|label| {
             if format_arguments.contains(label) {
                 experiment
-                    .list_variants(label)
-                    .map(|x| iter::repeat(label).zip(x.into_iter()))
+                    .list_attribute_values(label)
+                    .map(|values| iter::repeat(label).zip(values.into_iter()))
             } else {
                 None
             }
@@ -40,11 +40,12 @@ pub fn make_configs<'a, 'b>(
         .multi_cartesian_product();
     itertools::iproduct!(
         experiment.stimuli_subsets().into_iter(),
-        iter::once(attributes.next().unwrap_or_else(Vec::new)).chain(attributes),
+        iter::once(held_constant_attributes.next().unwrap_or_else(Vec::new))
+            .chain(held_constant_attributes),
         vec![true, false]
     )
-    .map(|((set_name, set), attributes, inverted)| {
-        trace!("item {:?}", attributes);
+    .map(|((set_name, set), constant_attributes, inverted)| {
+        trace!("item {:?}", constant_attributes);
         let correct = if inverted {
             &inverted_choices
         } else {
@@ -52,13 +53,17 @@ pub fn make_configs<'a, 'b>(
         };
         let stimuli = set
             .into_iter()
-            .filter(experiment.make_filter(&attributes.iter()))
-            .map(|stim| StimulusConfig::from(stim, correct))
+            .filter(|stimulus| {
+                constant_attributes
+                    .iter()
+                    .all(|attribute| stimulus.matches(attribute))
+            })
+            .map(|stimulus| StimulusConfig::from(stimulus, correct))
             .collect::<Result<Vec<_>, _>>()?;
         let parameters = experiment.decide_parameters();
         let stimulus_root = experiment.stimulus_root();
         let config = DecideConfig::new(stimuli, stimulus_root, parameters);
-        let mut attributes: HashMap<_, _> = attributes
+        let mut attributes: HashMap<_, _> = constant_attributes
             .into_iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
@@ -77,9 +82,13 @@ pub fn make_configs<'a, 'b>(
 
 #[derive(ThisError, Debug)]
 pub enum Error {
-    #[error("the attribute listed for `decisive_attribute` was not found")]
+    #[error("subset `{0}` contains unlisted attribute values")]
+    NotASubset(String),
+    #[error("the attribute {0} was used in `name_format`, but was not included under `stimuli`")]
+    UnknownAttributeInNameFormat(String),
+    #[error("the attribute listed for `decisive_attribute` was not found in `stimuli`")]
     DecisiveAttributeNotFound,
-    #[error("could not parse format string")]
+    #[error("an error occured while formating")]
     Format,
     #[error("could not find stimulus attribute {0} in correct choices file")]
     StimMissingFromCorrectChoices(StimulusAttribute),
@@ -89,4 +98,4 @@ pub enum Error {
 
 #[doc = include_str!("../README.md")]
 #[cfg(doctest)]
-pub struct ReadmeDoctests;
+struct ReadmeDoctests;

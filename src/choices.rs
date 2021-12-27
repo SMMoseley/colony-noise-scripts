@@ -46,17 +46,24 @@ impl CorrectChoices {
     }
 
     pub fn random(experiment: &Experiment) -> Result<Self, Error> {
-        let mut rng = thread_rng();
-        let mut choices = experiment.choices();
-        choices.shuffle(&mut rng);
+        let all_values = experiment
+            .list_attribute_values(experiment.decisive_attribute())
+            .unwrap();
+        Self::random_with_choices(experiment.choices(), all_values)
+    }
+
+    fn random_with_choices<'a, I>(mut choices: Vec<Response>, all_values: I) -> Result<Self, Error>
+    where
+        I: IntoIterator<Item = &'a StimulusAttribute>,
+    {
+        let all_values: Vec<_> = all_values.into_iter().collect();
         if choices.is_empty() {
             return Err(Error::EmptyChoices);
         }
-        let all_options = experiment
-            .list_variants(experiment.decisive_attribute())
-            .unwrap();
-        let stimuli_per_response = all_options.len() / choices.len();
-        let remainder = all_options.len() % choices.len();
+        let mut rng = thread_rng();
+        choices.shuffle(&mut rng);
+        let stimuli_per_response = all_values.len() / choices.len();
+        let remainder = all_values.len() % choices.len();
         // we create a vector with one response per stimulus,
         // with evenly divided assignment as much as possible
         let mut matched_choices: Vec<Response> = choices
@@ -67,7 +74,7 @@ impl CorrectChoices {
             .collect();
         matched_choices.shuffle(&mut rng);
         Ok(CorrectChoices(
-            all_options
+            all_values
                 .into_iter()
                 .cloned()
                 .zip(matched_choices)
@@ -80,44 +87,19 @@ impl CorrectChoices {
 mod tests {
     use super::*;
 
-    macro_rules! exp {
-        () => {
-            serde_yaml::from_str::<Experiment>(
-                "
-            decide:
-                parameters:
-                    a: b
-                stimulus_root: /
-                name_format: config
-                choices:
-                    - peck_left
-                    - peck_right
-            stimuli:
-                format: \"{foreground}\"
-                decisive_attribute: foreground
-                foreground:
-                    values:
-                        - a
-                        - b
-                        - c
-                        - d
-                        - e
-                        - f
-        ",
-            )
-            .unwrap()
-        };
-    }
-
     #[test]
     fn random_correctchoices() {
-        let exp = exp!();
-        let correct = CorrectChoices::random(&exp).unwrap();
-        let n_stimuli = exp.list_variants(exp.decisive_attribute()).unwrap().len();
+        let choices = vec![Response::PeckLeft, Response::PeckRight];
+        let all_values: Vec<_> = vec!["a", "b", "c", "d"]
+            .into_iter()
+            .map(StimulusAttribute::from)
+            .collect();
+        let correct = CorrectChoices::random_with_choices(choices, all_values.iter()).unwrap();
+        let n_stimuli = 4;
         let n_choices = 2;
         let by_response = |resp| correct.0.values().filter(|&&x| x == resp).count();
-        let left_count = by_response(Response::peck_left);
-        let right_count = by_response(Response::peck_right);
+        let left_count = by_response(Response::PeckLeft);
+        let right_count = by_response(Response::PeckRight);
         assert!(left_count <= n_stimuli / n_choices + 1);
         assert!(right_count <= n_stimuli / n_choices + 1);
     }

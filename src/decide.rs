@@ -1,4 +1,5 @@
 use super::{CorrectChoices, Error, Stimulus};
+use anyhow::Context;
 use fixed::traits::ToFixed;
 use fixed::types::I20F12;
 use fixed_macro::fixed;
@@ -33,8 +34,10 @@ impl DecideConfig {
     }
 
     pub fn to_json(&self, config_name: String) -> anyhow::Result<()> {
-        let config_file = File::create(config_name)?;
-        serde_json::to_writer_pretty(config_file, &self)?;
+        let config_file = File::create(&config_name)
+            .with_context(|| format!("could not create config `{}`", config_name))?;
+        serde_json::to_writer_pretty(config_file, &self)
+            .with_context(|| format!("could not write config `{}`", config_name))?;
         Ok(())
     }
 }
@@ -46,7 +49,6 @@ pub struct StimulusConfig {
     frequency: u32,
     responses: BTreeMap<Response, Outcome>,
     category: Option<String>,
-    cue_resp: Option<Vec<Light>>,
 }
 
 impl StimulusConfig {
@@ -66,21 +68,20 @@ impl StimulusConfig {
             name: name.into(),
             frequency: 1,
             category: Some("no_cue_lights".into()),
-            cue_resp: None,
             responses,
         })
     }
 }
 
-#[allow(non_camel_case_types)]
 #[derive(
     Deserialize, Serialize, PartialEq, Eq, Clone, Copy, EnumIter, PartialOrd, Ord, Hash, Debug,
 )]
+#[serde(rename_all = "snake_case")]
 pub enum Response {
-    peck_left,
-    peck_center,
-    peck_right,
-    timeout,
+    PeckLeft,
+    PeckCenter,
+    PeckRight,
+    Timeout,
 }
 
 #[allow(unused)]
@@ -135,14 +136,6 @@ impl From<ResponseMeaning> for Outcome {
             },
         }
     }
-}
-
-#[allow(dead_code, non_camel_case_types)]
-#[derive(Serialize, Deserialize, Hash, PartialEq, Eq)]
-enum Light {
-    left_blue,
-    center_blue,
-    right_blue,
 }
 
 #[cfg(test)]

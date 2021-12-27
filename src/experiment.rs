@@ -4,9 +4,14 @@ use super::{
 use dynfmt::{curly::SimpleCurlyFormat, Format};
 use serde::Deserialize;
 use serde_value::Value;
-use std::{collections::HashMap, convert::TryFrom, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    convert::TryFrom,
+    path::Path,
+};
 
 #[derive(Deserialize)]
+#[serde(try_from = "UnvalidatedExperiment")]
 pub struct Experiment {
     decide: ExperimentConfig,
     stimuli: StimuliConfig,
@@ -23,14 +28,14 @@ impl Experiment {
             .map(|name| {
                 self.stimuli
                     .label_by_str(name)
-                    .ok_or(Error::Format)
+                    .ok_or_else(|| Error::UnknownAttributeInNameFormat(String::from(name)))
                     .map(|label| label.clone())
             })
             .collect()
     }
 
-    pub fn name_format(&self) -> String {
-        self.decide.name_format.clone()
+    pub fn name_format(&self) -> &str {
+        &self.decide.name_format
     }
 
     pub fn stimuli_subsets(&self) -> Vec<(String, Vec<Stimulus<'_>>)> {
@@ -57,18 +62,8 @@ impl Experiment {
         self.stimuli.attribute_labels()
     }
 
-    pub fn list_variants(&self, label: &AttributeLabel) -> Option<Vec<&StimulusAttribute>> {
-        self.stimuli.list_variants(label)
-    }
-
-    pub fn make_filter<'a, I>(&self, attributes: &'a I) -> impl FnMut(&Stimulus) -> bool + 'a
-    where
-        I: IntoIterator<Item = &'a (&'a AttributeLabel, &'a StimulusAttribute)> + Clone,
-    {
-        move |stimulus: &Stimulus| {
-            let mut attributes = attributes.clone().into_iter();
-            attributes.all(|x| stimulus.matches(x))
-        }
+    pub fn list_attribute_values(&self, label: &AttributeLabel) -> Option<Vec<&StimulusAttribute>> {
+        self.stimuli.list_values(label)
     }
 
     pub fn decide_parameters(&self) -> Value {
@@ -89,16 +84,6 @@ impl Experiment {
 }
 
 #[derive(Deserialize)]
-struct PermissiveExperimentConfig {
-    parameters: Value,
-    name_format: String,
-    stimulus_root: Box<Path>,
-    choices: (Response, Response),
-    stimuli_subsets: Option<HashMap<String, Vec<StimulusAttribute>>>,
-}
-
-#[derive(Deserialize)]
-#[serde(try_from = "PermissiveExperimentConfig")]
 pub struct ExperimentConfig {
     pub parameters: Value,
     pub name_format: String,
@@ -113,7 +98,6 @@ impl ExperimentConfig {
             .iter_args(&self.name_format)
             .map_err(|_| Error::Format)?
             .map(|arg_spec| {
-                trace!("found named arg");
                 let arg_spec = arg_spec.map_err(|_| Error::Format)?;
                 Ok(&self.name_format[arg_spec.start() + 1..arg_spec.end() - 1])
             })
@@ -121,22 +105,32 @@ impl ExperimentConfig {
     }
 }
 
-impl TryFrom<PermissiveExperimentConfig> for ExperimentConfig {
+#[derive(Deserialize)]
+struct UnvalidatedExperiment {
+    decide: ExperimentConfig,
+    stimuli: StimuliConfig,
+}
+
+impl TryFrom<UnvalidatedExperiment> for Experiment {
     type Error = Error;
 
-    fn try_from(exp: PermissiveExperimentConfig) -> Result<Self, Self::Error> {
-        //let foreground: HashSet<_> = exp.scenes.foreground.iter().collect();
-        //let set: HashSet<_> = set.into_iter().collect();
-        //if !set.is_subset(&foreground) {
-        //    panic!("set should be a subset of foreground");
-        //}
-        Ok(ExperimentConfig {
-            parameters: exp.parameters,
-            name_format: exp.name_format,
-            stimulus_root: exp.stimulus_root,
-            choices: exp.choices,
-            stimuli_subsets: exp.stimuli_subsets,
-        })
+    fn try_from(
+        UnvalidatedExperiment { decide, stimuli }: UnvalidatedExperiment,
+    ) -> Result<Self, Self::Error> {
+        let all_values: HashSet<_> = stimuli
+            .list_values(stimuli.decisive_attribute())
+            .ok_or(Error::DecisiveAttributeNotFound)?
+            .into_iter()
+            .collect();
+        if let Some(stimuli_subsets) = decide.stimuli_subsets.as_ref() {
+            for (name, subset) in stimuli_subsets.iter() {
+                let subset: HashSet<_> = subset.iter().collect();
+                if !subset.is_subset(&all_values) {
+                    return Err(Error::NotASubset(name.clone()));
+                }
+            }
+        }
+        Ok(Experiment { decide, stimuli })
     }
 }
 

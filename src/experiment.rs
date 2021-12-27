@@ -7,7 +7,7 @@ use serde_value::Value;
 use std::{
     collections::{HashMap, HashSet},
     convert::TryFrom,
-    path::Path,
+    path::PathBuf,
 };
 
 #[derive(Deserialize)]
@@ -70,7 +70,7 @@ impl Experiment {
         self.decide.parameters.clone()
     }
 
-    pub fn stimulus_root(&self) -> Box<Path> {
+    pub fn stimulus_root(&self) -> PathBuf {
         self.decide.stimulus_root.clone()
     }
 
@@ -87,7 +87,7 @@ impl Experiment {
 pub struct ExperimentConfig {
     pub parameters: Value,
     pub name_format: String,
-    pub stimulus_root: Box<Path>,
+    pub stimulus_root: PathBuf,
     pub choices: (Response, Response),
     pub stimuli_subsets: Option<HashMap<String, Vec<StimulusAttribute>>>,
 }

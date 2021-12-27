@@ -9,19 +9,19 @@ use serde_with::skip_serializing_none;
 use std::{
     collections::{BTreeMap, HashSet},
     fs::File,
-    path::Path,
+    path::PathBuf,
 };
 use strum::{EnumIter, IntoEnumIterator};
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
 pub struct DecideConfig {
     parameters: Value,
-    stimulus_root: Box<Path>,
+    stimulus_root: PathBuf,
     stimuli: HashSet<StimulusConfig>,
 }
 
 impl DecideConfig {
-    pub fn new<I>(stimuli: I, stimulus_root: Box<Path>, parameters: Value) -> Self
+    pub fn new<I>(stimuli: I, stimulus_root: PathBuf, parameters: Value) -> Self
     where
         I: IntoIterator<Item = StimulusConfig>,
     {

@@ -2,6 +2,7 @@ use core::cmp::{Ordering, PartialOrd};
 use dynfmt::{curly::SimpleCurlyFormat, Format};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use serde_diff::SerdeDiff;
 use std::{borrow::Borrow, collections::HashMap, fmt, iter};
 
 #[derive(Serialize, Clone, Debug)]
@@ -24,6 +25,14 @@ impl<'a> Stimulus<'a> {
         self.attributes
             .get(&self.config.decisive_attribute)
             .expect("StimuliConfig does not contain decisive_attribute")
+    }
+
+    pub fn category(&self) -> Option<&StimulusAttribute> {
+        self.config.category.as_ref().map(|category| {
+            self.attributes
+                .get(category)
+                .expect("StimuliConfig does not contain category")
+        })
     }
 
     pub fn matches(&self, (label, attribute): &(&AttributeLabel, &StimulusAttribute)) -> bool {
@@ -50,7 +59,7 @@ impl<'a> From<Stimulus<'a>> for String {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Hash, Eq, Clone, Debug)]
+#[derive(Serialize, Deserialize, SerdeDiff, PartialEq, Hash, Eq, Clone, Debug)]
 pub struct StimulusAttribute(AttributeKind);
 
 impl From<&str> for StimulusAttribute {
@@ -59,7 +68,7 @@ impl From<&str> for StimulusAttribute {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Hash, Eq, Clone, Debug)]
+#[derive(Serialize, Deserialize, SerdeDiff, PartialEq, Hash, Eq, Clone, Debug)]
 #[serde(untagged)]
 enum AttributeKind {
     Numeric(i32),
@@ -88,7 +97,7 @@ impl fmt::Display for StimulusAttribute {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Hash, Eq, Clone, Debug)]
+#[derive(Serialize, Deserialize, SerdeDiff, PartialEq, Hash, Eq, Clone, Debug)]
 pub struct AttributeLabel(String);
 
 impl Borrow<str> for AttributeLabel {
@@ -103,17 +112,18 @@ impl From<&str> for AttributeLabel {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, SerdeDiff, Debug)]
 struct AttributeConfig {
     values: Vec<StimulusAttribute>,
     #[serde(default)]
     inclusive_less_than: bool,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, SerdeDiff, Debug)]
 pub struct StimuliConfig {
     format: String,
     decisive_attribute: AttributeLabel,
+    category: Option<AttributeLabel>,
     #[serde(flatten)]
     values: HashMap<AttributeLabel, AttributeConfig>,
 }
@@ -176,6 +186,7 @@ mod tests {
             format,
             decisive_attribute,
             values,
+            category: None,
         };
         let stim = Stimulus::new(attributes, &config);
         assert_eq!(serde_json::to_string(&stim).unwrap(), "\"hi hello\"");

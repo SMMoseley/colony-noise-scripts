@@ -1,9 +1,10 @@
-use super::{CorrectChoices, Error, Stimulus};
+use super::{CorrectChoices, Error, Stimulus, StimulusAttribute};
 use anyhow::Context;
 use fixed::traits::ToFixed;
 use fixed::types::I20F12;
 use fixed_macro::fixed;
 use serde::{Deserialize, Serialize};
+use serde_diff::SerdeDiff;
 use serde_value::Value;
 use serde_with::skip_serializing_none;
 use std::{
@@ -13,10 +14,12 @@ use std::{
 };
 use strum::{EnumIter, IntoEnumIterator};
 
-#[derive(Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, SerdeDiff, PartialEq, Eq)]
 pub struct DecideConfig {
+    #[serde_diff(opaque)]
     parameters: Value,
     stimulus_root: PathBuf,
+    #[serde_diff(opaque)]
     stimuli: HashSet<StimulusConfig>,
 }
 
@@ -48,7 +51,7 @@ pub struct StimulusConfig {
     name: String,
     frequency: u32,
     responses: BTreeMap<Response, Outcome>,
-    category: Option<String>,
+    category: Option<StimulusAttribute>,
 }
 
 impl StimulusConfig {
@@ -64,10 +67,11 @@ impl StimulusConfig {
                 Ok((response, response_meaning.into()))
             })
             .collect::<Result<_, _>>()?;
+        let category = name.category().cloned();
         Ok(StimulusConfig {
             name: name.into(),
             frequency: 1,
-            category: Some("no_cue_lights".into()),
+            category,
             responses,
         })
     }

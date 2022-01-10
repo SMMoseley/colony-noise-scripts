@@ -60,8 +60,8 @@ pub fn make_configs<'a, 'b>(
             })
             .map(|stimulus| StimulusConfig::from(stimulus, correct))
             .collect::<Result<Vec<_>, _>>()?;
-        let parameters = experiment.decide_parameters();
-        let stimulus_root = experiment.stimulus_root();
+        let parameters = experiment.decide_parameters().clone();
+        let stimulus_root = experiment.stimulus_root().clone();
         let config = DecideConfig::new(stimuli, stimulus_root, parameters);
         let mut attributes: HashMap<_, _> = constant_attributes
             .into_iter()

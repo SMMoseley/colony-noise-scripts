@@ -8,6 +8,7 @@ use anyhow::{anyhow, Context, Result};
 use clap::ArgMatches;
 use decide_config::{CorrectChoices, DecideConfig, Error, Experiment};
 use dynfmt::{Format, SimpleCurlyFormat};
+use serde_diff::Diff;
 
 const DEFAULT_CORRECT_CHOICES_FILE: &str = "correct_choices.yml";
 
@@ -93,15 +94,22 @@ fn config_diff(matches: &ArgMatches) -> Result<()> {
     if file1 == file2 {
         std::process::exit(0)
     } else {
-        eprintln!("Files differ!");
+        let stdout = io::stdout();
+        let handle = stdout.lock();
+        let diff = Diff::serializable(&file1, &file2);
+        serde_json::to_writer_pretty(handle, &diff)?;
         std::process::exit(1)
     }
 }
 
 fn list_stimuli(matches: &ArgMatches) -> Result<()> {
     let experiment: Experiment = serde_yaml::from_reader(
-        File::open(matches.value_of("experiment").unwrap())
-            .context("could not open experiment file")?,
+        File::open(
+            matches
+                .value_of("experiment")
+                .ok_or_else(|| anyhow!("must provide `experiment` file"))?,
+        )
+        .context("could not open experiment file")?,
     )
     .context("could not parse experiment file")?;
     for stimulus in experiment.stimuli() {

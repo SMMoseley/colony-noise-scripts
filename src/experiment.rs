@@ -66,12 +66,12 @@ impl Experiment {
         self.stimuli.list_values(label)
     }
 
-    pub fn decide_parameters(&self) -> Value {
-        self.decide.parameters.clone()
+    pub fn decide_parameters(&self) -> &Value {
+        &self.decide.parameters
     }
 
-    pub fn stimulus_root(&self) -> PathBuf {
-        self.decide.stimulus_root.clone()
+    pub fn stimulus_root(&self) -> &PathBuf {
+        &self.decide.stimulus_root
     }
 
     pub fn choices(&self) -> Vec<Response> {

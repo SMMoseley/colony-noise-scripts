@@ -8,18 +8,60 @@ use serde_diff::SerdeDiff;
 use serde_value::Value;
 use serde_with::skip_serializing_none;
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     fs::File,
     path::PathBuf,
 };
 use strum::{EnumIter, IntoEnumIterator};
 
-#[derive(Serialize, Deserialize, SerdeDiff, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, SerdeDiff, PartialEq, Eq, Clone)]
+#[serde(from = "LiteralDecideConfig")]
+#[serde(into = "LiteralDecideConfig")]
 pub struct DecideConfig {
     #[serde_diff(opaque)]
     parameters: Value,
     stimulus_root: PathBuf,
-    #[serde_diff(opaque)]
+    stimuli: HashMap<String, StimulusConfig>,
+}
+
+impl From<DecideConfig> for LiteralDecideConfig {
+    fn from(
+        DecideConfig {
+            parameters,
+            stimulus_root,
+            stimuli,
+        }: DecideConfig,
+    ) -> Self {
+        let stimuli = stimuli.into_values().collect();
+        LiteralDecideConfig {
+            parameters,
+            stimulus_root,
+            stimuli,
+        }
+    }
+}
+
+impl From<LiteralDecideConfig> for DecideConfig {
+    fn from(
+        LiteralDecideConfig {
+            parameters,
+            stimulus_root,
+            stimuli,
+        }: LiteralDecideConfig,
+    ) -> Self {
+        let stimuli = stimuli.into_iter().map(|v| (v.name.clone(), v)).collect();
+        DecideConfig {
+            parameters,
+            stimulus_root,
+            stimuli,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
+struct LiteralDecideConfig {
+    parameters: Value,
+    stimulus_root: PathBuf,
     stimuli: HashSet<StimulusConfig>,
 }
 
@@ -29,11 +71,12 @@ impl DecideConfig {
         I: IntoIterator<Item = StimulusConfig>,
     {
         let stimuli = stimuli.into_iter().collect();
-        DecideConfig {
+        LiteralDecideConfig {
             stimuli,
             stimulus_root,
             parameters,
         }
+        .into()
     }
 
     pub fn to_json(&self, config_name: String) -> anyhow::Result<()> {
@@ -46,7 +89,7 @@ impl DecideConfig {
 }
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, SerdeDiff, Clone, PartialEq, Eq, Hash)]
 pub struct StimulusConfig {
     name: String,
     frequency: u32,
@@ -78,7 +121,18 @@ impl StimulusConfig {
 }
 
 #[derive(
-    Deserialize, Serialize, PartialEq, Eq, Clone, Copy, EnumIter, PartialOrd, Ord, Hash, Debug,
+    Deserialize,
+    Serialize,
+    SerdeDiff,
+    PartialEq,
+    Eq,
+    Clone,
+    Copy,
+    EnumIter,
+    PartialOrd,
+    Ord,
+    Hash,
+    Debug,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum Response {
@@ -95,7 +149,8 @@ enum ResponseMeaning {
     Neutral,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, SerdeDiff, Clone, PartialEq, Eq, Hash)]
+#[serde_diff(opaque)]
 #[serde(into = "f64")]
 #[serde(from = "f64")]
 struct Decimal(I20F12);
@@ -113,7 +168,7 @@ impl From<Decimal> for f64 {
 }
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, SerdeDiff, PartialEq, Eq, Hash, Clone)]
 struct Outcome {
     p_reward: Option<Decimal>,
     p_punish: Option<Decimal>,
